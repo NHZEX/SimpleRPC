@@ -73,6 +73,14 @@ class Rpc
     }
 
     /**
+     * 销毁全部RPC实例
+     */
+    public static function destroyAllInstance()
+    {
+        self::$instances = [];
+    }
+
+    /**
      * 清理超时方法
      * @return int
      */
