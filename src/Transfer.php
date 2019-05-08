@@ -142,7 +142,7 @@ class Transfer
         if ($failure) {
             foreach ($this->fails as $closure) {
                 // [code => int, message => string, trace => string]
-                $this->invokeFunction($closure, ...$result);
+                $this->invokeFunction($closure, $result['code'], $result['message'], $result['trace']);
             }
         } else {
             foreach ($this->thens as $closure) {

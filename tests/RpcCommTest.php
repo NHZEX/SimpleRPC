@@ -42,6 +42,10 @@ class RpcCommTest extends TestCase
             ->then(function ($result) {
                 $this->assertEquals('success6', $result);
             })
+            ->fail(function ($code, $message, $trace) {
+                // TODO 调用失败的单元测试未完成
+                $this->assertIsArray([$code, $message, $trace]);
+            })
             ->exec();
 
 
