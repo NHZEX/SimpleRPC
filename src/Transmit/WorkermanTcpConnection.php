@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Service\Rpc\Transmit;
+namespace HZEX\SimpleRpc\Transmit;
 
-use App\Server\Rpc\Transmit\TransmitInterface;
 use Workerman\Connection\TcpConnection;
 
 class WorkermanTcpConnection implements TransmitInterface

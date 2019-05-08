@@ -1,15 +1,13 @@
 <?php
 declare(strict_types=1);
 
-namespace app\Service;
+namespace HZEX\SimpleRpc;
 
-use app\Server\Rpc\Exception\RpcFunctionInvokeException;
-use app\Server\Rpc\Exception\RpcSendDataErrorException;
-use app\Server\Rpc\Transmit\TransmitInterface;
-use app\Service\Rpc\RpcServerProvider;
-use app\Service\Rpc\Transfer;
 use Closure;
 use Exception;
+use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcSendDataErrorException;
+use HZEX\SimpleRpc\Transmit\TransmitInterface;
 use LengthException;
 
 class Rpc
@@ -110,6 +108,15 @@ class Rpc
     {
         $this->provider = $provider->cloneInstance($this);
         return $this;
+    }
+
+    /**
+     * 获取服务提供商
+     * @return RpcServerProvider
+     */
+    public function getServerProvider()
+    {
+        return $this->provider;
     }
 
     /**

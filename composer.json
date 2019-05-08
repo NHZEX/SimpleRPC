@@ -29,8 +29,12 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "HZEX\\SimpleRpc\\Test\\": "test/"
-        }
+            "HZEX\\SimpleRpc\\Stub\\": "stub/",
+            "HZEX\\SimpleRpc\\Tests\\": "tests/"
+        },
+        "files": [
+            "stub/common.php"
+        ]
     },
     "config": {
         "sort-packages": true,

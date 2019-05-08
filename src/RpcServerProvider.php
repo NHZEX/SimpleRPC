@@ -1,12 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace app\Service\Rpc;
+namespace HZEX\SimpleRpc;
 
-use app\Server\Rpc\Exception\RpcFunctionInvokeException;
-use app\Server\Rpc\Exception\RpcFunctionNotExistException;
-use app\Service\Rpc;
 use Closure;
+use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcFunctionNotExistException;
 use ReflectionException;
 use ReflectionFunction;
 use ReflectionFunctionAbstract;
