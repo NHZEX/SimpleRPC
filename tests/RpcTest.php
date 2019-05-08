@@ -12,7 +12,7 @@ use HZEX\SimpleRpc\Stub\Tests;
 use HZEX\SimpleRpc\Transfer;
 use PHPUnit\Framework\TestCase;
 
-class RpcServerProviderTest extends TestCase
+class RpcTest extends TestCase
 {
     /**
      * @dataProvider serverProviderDataProvider
@@ -110,7 +110,15 @@ class RpcServerProviderTest extends TestCase
                 $this->assertEquals('test', $transfer->getMethodName());
                 $this->assertEquals(789, $transfer->getRpc()->getId());
                 $this->assertEquals('success', $result);
+            })
+            ->fail(function (Rpc $rpc, Transfer $transfer, $code, $message, $trace) {
+                $this->assertEquals(789, $rpc->getId());
+                $this->assertEquals('test', $transfer->getMethodName());
+                $this->assertEquals(789, $transfer->getRpc()->getId());
+                $this->assertEquals([0, 'asd', '123'], [$code, $message, $trace]);
             });
+
         $method->response(serialize('success'), false);
+        $method->response(serialize(['code' => 0, 'message' => 'asd', 'trace' => '123']), true);
     }
 }
