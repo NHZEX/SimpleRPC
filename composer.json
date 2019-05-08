@@ -1,0 +1,45 @@
+{
+    "name": "nhzex/simple-rpc",
+    "description": "simple-rpc",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "auooru",
+            "email": "auooru@outlook.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": "~7.1",
+        "ext-zlib": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.1",
+        "workerman/workerman": "^3.5",
+        "swoole/ide-helper": "^4.3"
+    },
+    "suggest": {
+        "ext-swoole": "swoole support",
+        "workerman/workerman": "workerman support"
+    },
+    "autoload": {
+        "psr-4": {
+            "HZEX\\SimpleRpc\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "HZEX\\SimpleRpc\\Test\\": "test/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "repositories": {
+        "packagist": {
+            "type": "composer",
+            "url": "https://packagist.laravel-china.org"
+        }
+    }
+}
