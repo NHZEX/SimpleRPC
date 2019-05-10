@@ -7,6 +7,7 @@ use Exception;
 use HZEX\SimpleRpc\Rpc;
 use HZEX\SimpleRpc\RpcServerProvider;
 use HZEX\SimpleRpc\Stub\TestsRpcFacade;
+use HZEX\SimpleRpc\Transmit\Callback;
 use HZEX\SimpleRpc\Transmit\TransmitInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -116,5 +117,23 @@ class RpcCommTest extends TestCase
 
         // 客户端响应请求
         $this->assertTrue($crpc->receive($cSendData));
+    }
+
+    public function testRpcTransmitCallback()
+    {
+        $transmit = new Callback(function (string $data) {
+            $this->assertStringStartsWith('nrpc', $data);
+            return true;
+        });
+
+        $crpc = Rpc::getInstance(999);
+        $crpc->setFlags(0);
+        $crpc->transmit($transmit);
+
+        $f = new TestsRpcFacade($crpc);
+        $f->runAutoUpdate('success', 122, true)
+            ->then(function ($result) {
+                $this->assertEquals('122-success-true', $result);
+            })->exec();
     }
 }
