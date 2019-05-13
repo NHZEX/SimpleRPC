@@ -204,7 +204,8 @@ class Rpc
      * RPC包接收处理
      * @param string $packet
      * @return bool
-     * @throws Exception
+     * @throws RpcFunctionInvokeException
+     * @throws RpcSendDataErrorException
      */
     public function receive(string $packet)
     {
@@ -352,7 +353,7 @@ class Rpc
      * 解请求包
      * @param string $payload
      * @return bool
-     * @throws Exception
+     * @throws RpcSendDataErrorException
      */
     protected function unpackExecute(string $payload)
     {
@@ -377,7 +378,7 @@ class Rpc
      * 解响应包
      * @param string $payload
      * @param bool   $failure
-     * @throws Exception
+     * @throws RpcFunctionInvokeException
      */
     protected function unpackResult(string $payload, bool $failure = false)
     {
