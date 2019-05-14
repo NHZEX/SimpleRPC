@@ -4,11 +4,14 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Tests;
 
 use Exception;
+use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcSendDataErrorException;
 use HZEX\SimpleRpc\Rpc;
 use HZEX\SimpleRpc\RpcServerProvider;
 use HZEX\SimpleRpc\Stub\TestsRpcFacade;
+use HZEX\SimpleRpc\Stub\VirtualSend;
+use HZEX\SimpleRpc\Transfer;
 use HZEX\SimpleRpc\Transmit\Callback;
-use HZEX\SimpleRpc\Transmit\TransmitInterface;
 use PHPUnit\Framework\TestCase;
 
 class RpcCommTest extends TestCase
@@ -17,51 +20,62 @@ class RpcCommTest extends TestCase
     {
         RpcServerProvider::destroyInstance();
         Rpc::destroyAllInstance();
+        VirtualSend::clear();
     }
 
     /**
-     * @throws Exception
+     * @throws RpcFunctionInvokeException
+     * @throws RpcSendDataErrorException
      */
-    public function testRpc()
+    public function testRpcExec()
     {
-        global $cSendData;
-        $cSendData = '';
+        $mockTransmit = new VirtualSend();
 
-        $transmit = new class implements TransmitInterface {
-            public function __invoke(string $data): bool
-            {
-                global $cSendData;
-                $cSendData = $data;
-                return true;
-            }
-        };
+        $provider = RpcServerProvider::getInstance();
+        $provider->bind('testSuccess', function ($a, $b, $c) {
+            $this->assertEquals(6, $a + $b + $c);
+            return 'success';
+        });
+        $provider->bind('testFail', function () {
+            throw new Exception('test', 1234);
+        });
+        $provider->bind('testInj', function (Rpc $rpc) {
+            $this->assertEquals(789, $rpc->getId());
+            return 'success';
+        });
 
-        $crpc = Rpc::getInstance(789);
-        $crpc->setFlags(0);
-        $crpc->transmit($transmit);
-        $crpc->method('test', 1, 2, 3)
+        $rpc = Rpc::getInstance(789);
+        $rpc->setFlags(0);
+        $rpc->transmit($mockTransmit);
+        $rpc->bindServerProvider(RpcServerProvider::getInstance());
+
+        $rpc->method('testSuccess', 1, 2, 3)
             ->then(function ($result) {
-                $this->assertEquals('success6', $result);
-            })
-            ->fail(function ($code, $message, $trace) {
-                // TODO 调用失败的单元测试未完成
-                $this->assertIsArray([$code, $message, $trace]);
+                $this->assertEquals('success', $result);
             })
             ->exec();
+        $this->assertTrue($rpc->receive($mockTransmit::getData()));
+        $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
+        $rpc->method('testFail')
+            ->fail(function ($code, $message, $trace) {
+                $this->assertEquals(1234, $code);
+                $this->assertEquals('test', $message);
+                $this->assertNotEmpty($trace);
+            })
+            ->exec();
+        $this->assertTrue($rpc->receive($mockTransmit::getData()));
+        $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
-        RpcServerProvider::destroyInstance();
-        $provider = RpcServerProvider::getInstance();
-        $provider->bind('test', function ($a, $b, $c) {
-            $this->assertEquals(6, $a + $b + $c);
-            return 'success6';
-        });
-        $srpc = Rpc::getInstance(456);
-        $srpc->transmit($transmit);
-        $srpc->bindServerProvider(RpcServerProvider::getInstance());
-        $this->assertTrue($srpc->receive($cSendData));
-
-        $this->assertTrue($crpc->receive($cSendData));
+        $rpc->method('testInj')
+            ->then(function (Rpc $rpc, Transfer $transfer, $result) {
+                $this->assertEquals('success', $result);
+                $this->assertEquals(789, $rpc->getId());
+                $this->assertEquals('testInj', $transfer->getMethodName());
+            })
+            ->exec();
+        $this->assertTrue($rpc->receive($mockTransmit::getData()));
+        $this->assertTrue($rpc->receive($mockTransmit::getData()));
     }
 
     public function testMakeRpcFacade()
@@ -75,21 +89,11 @@ class RpcCommTest extends TestCase
      */
     public function testRpcFacade()
     {
-        global $cSendData;
-        $cSendData = '';
-
-        $transmit = new class implements TransmitInterface {
-            public function __invoke(string $data): bool
-            {
-                global $cSendData;
-                $cSendData = $data;
-                return true;
-            }
-        };
+        $mockTransmit = new VirtualSend();
 
         $crpc = Rpc::getInstance(999);
         $crpc->setFlags(0);
-        $crpc->transmit($transmit);
+        $crpc->transmit($mockTransmit);
 
         $f = new TestsRpcFacade($crpc);
         $f->runAutoUpdate('success', 122, true)
@@ -108,15 +112,15 @@ class RpcCommTest extends TestCase
             }
         });
         $srpc = Rpc::getInstance(533);
-        $srpc->transmit($transmit);
+        $srpc->transmit($mockTransmit);
         $srpc->bindServerProvider(RpcServerProvider::getInstance());
         $srpc->setFlags(0);
 
         // 服务的响应请求
-        $this->assertTrue($srpc->receive($cSendData));
+        $this->assertTrue($srpc->receive($mockTransmit::getData()));
 
         // 客户端响应请求
-        $this->assertTrue($crpc->receive($cSendData));
+        $this->assertTrue($crpc->receive($mockTransmit::getData()));
     }
 
     public function testRpcTransmitCallback()

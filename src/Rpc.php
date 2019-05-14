@@ -7,22 +7,12 @@ use Closure;
 use Exception;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
 use HZEX\SimpleRpc\Exception\RpcSendDataErrorException;
+use HZEX\SimpleRpc\Protocol\PrcFrame;
 use HZEX\SimpleRpc\Transmit\TransmitInterface;
 use LengthException;
 
 class Rpc
 {
-    const PRC_COMPRESSION_DATA = 1;
-
-    /** @var string 数据包头 */
-    private const HEAD = 'nrpc';
-    /** @var string 数据类型 执行方法 */
-    private const TYPE_EXECUTE = '01';
-    /** @var string 数据类型 执行结果 */
-    private const TYPE_RESULT = '02';
-    /** @var string 数据类型 执行失败 */
-    private const TYPE_FAILURE = '03';
-
     /** @var self[] 全局实例对象集 */
     private static $instances = [];
     /** @var Transfer[] 全局执行统计 */
@@ -36,7 +26,7 @@ class Rpc
     private $provider;
 
     /** @var int */
-    private $flags = self::PRC_COMPRESSION_DATA;
+    private $flags = PrcFrame::FLAG_COMPRESSION;
 
     /**
      * 获取指定RPC实例
@@ -209,38 +199,21 @@ class Rpc
      */
     public function receive(string $packet)
     {
-        if ($packet[0] !== self::HEAD[0] || substr($packet, 0, 4) !== self::HEAD) {
+        $frame = PrcFrame::make($packet);
+        if (false === $frame instanceof PrcFrame) {
             return false;
         }
-        // 解析头部
-        $packet = substr($packet, 4);
-        $flags = substr($packet, 0, 4);
-        $packet = substr($packet, 4);
-
-        // 解压数据
-        $hash = substr($packet, -4);
-        $packet = substr($packet, 0, strlen($packet) - 4);
-        if ($hash !== hash('adler32', $packet, true)) {
-            return false;
-        }
-        // 解压数据
-        if ($flags & self::PRC_COMPRESSION_DATA) {
-            $packet = gzinflate($packet);
-        }
-
-        $packet_type = substr($packet, 0, 2);
-        $payload = substr($packet, 2);
 
         // 判断包类型
-        switch ($packet_type) {
-            case self::TYPE_EXECUTE:
-                $this->unpackExecute($payload);
+        switch ($frame->getOpcode()) {
+            case PrcFrame::OPCODE_EXECUTE:
+                $this->unpackExecute($frame->getData());
                 break;
-            case self::TYPE_RESULT:
-                $this->unpackResult($payload);
+            case PrcFrame::OPCODE_RESULT:
+                $this->unpackResult($frame->getData());
                 break;
-            case self::TYPE_FAILURE:
-                $this->unpackResult($payload, true);
+            case PrcFrame::OPCODE_FAILURE:
+                $this->unpackResult($frame->getData(), true);
                 break;
         }
 
@@ -249,25 +222,19 @@ class Rpc
 
     /**
      * 发送包
-     * @param string $packet
+     * @param PrcFrame $frame
      * @throws RpcSendDataErrorException
      */
-    protected function sendData(string $packet)
+    protected function sendDataFrame(PrcFrame $frame)
     {
         if (false === is_callable($this->sendCall)) {
             return;
         }
-        $flags = substr('0000' . dechex($this->flags), -4);
-        // 数据处理
-        if ($this->flags & self::PRC_COMPRESSION_DATA) {
-            $packet = gzdeflate($packet);
-        }
-        $hash = hash('adler32', $packet, true);
-        $packet = self::HEAD . $flags . $packet . $hash;
-        $result = call_user_func($this->sendCall, $packet);
-
+        $frame->setFlags($this->flags);
+        $content = $frame->pack();
+        $result = call_user_func($this->sendCall, $content);
         if (false === $result) {
-            throw new RpcSendDataErrorException('数据发送失败, len:' . strlen($packet), 0);
+            throw new RpcSendDataErrorException('数据发送失败, len:' . strlen($content), 0);
         }
     }
 
@@ -296,14 +263,16 @@ class Rpc
         }
         $namelen = substr('00' . dechex($namelen), -2);
 
-
         $serial = $this->generateRandomString(16);
 
         // 关联执行类
         $this->addExecMethod($serial, $transfer);
         // 发送包数据
         try {
-            $this->sendData(self::TYPE_EXECUTE . $serial . $namelen . $methodName . $transfer->getArgvSerialize());
+            $frame = new PrcFrame();
+            $frame->setOpcode($frame::OPCODE_EXECUTE);
+            $frame->setData($serial . $namelen . $methodName . $transfer->getArgvSerialize());
+            $this->sendDataFrame($frame);
         } catch (RpcSendDataErrorException $e) {
             $transfer->response(serialize([
                 'code' => $e->getCode(),
@@ -321,7 +290,10 @@ class Rpc
      */
     protected function respResult(string $exec_id, $result)
     {
-        $this->sendData(self::TYPE_RESULT . $exec_id . serialize($result));
+        $frame = new PrcFrame();
+        $frame->setOpcode($frame::OPCODE_RESULT);
+        $frame->setData($exec_id . serialize($result));
+        $this->sendDataFrame($frame);
     }
 
     /**
@@ -346,7 +318,11 @@ class Rpc
             'message' => $e->getMessage(),
             'trace' => $traceContent,
         ];
-        $this->sendData(self::TYPE_FAILURE . $exec_id . serialize($e));
+
+        $frame = new PrcFrame();
+        $frame->setOpcode(PrcFrame::OPCODE_FAILURE);
+        $frame->setData($exec_id . serialize($e));
+        $this->sendDataFrame($frame);
     }
 
     /**
