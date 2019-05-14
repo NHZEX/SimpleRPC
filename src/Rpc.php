@@ -257,21 +257,20 @@ class Rpc
     public function execMethod(Transfer $transfer)
     {
         $methodName = $transfer->getMethodName();
-        $namelen = strlen($methodName);
-        if ($namelen > 255) {
+        if (($namelen = strlen($methodName)) > 255) {
             throw new LengthException('方法名称长度超出支持范围 ' . $namelen);
         }
-        $namelen = substr('00' . dechex($namelen), -2);
-
         $serial = $this->generateRandomString(16);
-
         // 关联执行类
         $this->addExecMethod($serial, $transfer);
+        // 组包
+        $pack = pack('Ca16', $namelen, $serial);
+        $pack = $pack . $methodName . $transfer->getArgvSerialize();
         // 发送包数据
         try {
             $frame = new PrcFrame();
             $frame->setOpcode($frame::OPCODE_EXECUTE);
-            $frame->setData($serial . $namelen . $methodName . $transfer->getArgvSerialize());
+            $frame->setData($pack);
             $this->sendDataFrame($frame);
         } catch (RpcSendDataErrorException $e) {
             $transfer->response(serialize([
@@ -333,10 +332,9 @@ class Rpc
      */
     protected function unpackExecute(string $payload)
     {
-        $execid = substr($payload, 0, 16);
-        $nlen = hexdec(substr($payload, 16, 2));
-        $name = substr($payload, 18, $nlen);
-        $argv = substr($payload, 18 + $nlen);
+        ['len' => $nlen, 'execid' => $execid] = unpack('Clen/a16execid', $payload);
+        $name = substr($payload, 17, $nlen);
+        $argv = substr($payload, 17 + $nlen);
         $argv = unserialize($argv);
 
         try {
