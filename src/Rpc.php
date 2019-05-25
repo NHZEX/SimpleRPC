@@ -15,8 +15,8 @@ class Rpc
 {
     /** @var self[] 全局实例对象集 */
     private static $instances = [];
-    /** @var Transfer[] 全局执行统计 */
-    private static $execCount = [];
+    /** @var Transfer[] 全局执行列表 */
+    private static $execList = [];
     /** @var int|string 实例ID */
     private $id;
     /** @var Closure 数据发送处理器 */
@@ -79,10 +79,10 @@ class Rpc
         $gcTime = time();
         /** @var string[] $gcExec */
         $gcExec = [];
-        foreach (self::$execCount as $key => $transfer) {
+        foreach (self::$execList as $key => $transfer) {
             if ($gcTime > $transfer->getExecTimeout()) {
                 $gcExec[] = $transfer;
-                unset(self::$execCount[$key]);
+                unset(self::$execList[$key]);
             }
         }
         return count($gcExec);
@@ -94,7 +94,7 @@ class Rpc
      */
     public static function countTransfer()
     {
-        return count(self::$execCount);
+        return count(self::$execList);
     }
 
     /**
@@ -153,7 +153,7 @@ class Rpc
      */
     private function getExecMethod(string $serial)
     {
-        return self::$execCount[$this->id . '=' . $serial];
+        return self::$execList[$this->id . '=' . $serial];
     }
 
     /**
@@ -164,7 +164,7 @@ class Rpc
      */
     private function addExecMethod(string $serial, Transfer $transfer)
     {
-        self::$execCount[$this->id . '=' . $serial] = $transfer;
+        self::$execList[$this->id . '=' . $serial] = $transfer;
         return $this;
     }
 
@@ -175,7 +175,7 @@ class Rpc
      */
     private function delExecMethod(string $serial)
     {
-        unset(self::$execCount[$this->id . '=' . $serial]);
+        unset(self::$execList[$this->id . '=' . $serial]);
         return $this;
     }
 

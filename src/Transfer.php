@@ -10,22 +10,23 @@ use ReflectionFunction;
 
 class Transfer
 {
+    /** @var int 执行超时时长 */
     private $execTimeLimit = 600;
-    /** @var Rpc */
+    /** @var Rpc 绑定的Rpc实例 */
     private $rpc;
-    /** @var int */
-    private $execTime;
-    /** @var int */
-    private $execTimeout;
-    /** @var string */
+    /** @var int 方法创建时间 */
+    private $createTime;
+    /** @var int 方法超时时间 */
+    private $stopTime;
+    /** @var string 方法名称 */
     private $methodName;
-    /** @var array */
+    /** @var array 执行参数 */
     private $methodArgv;
-    /** @var Closure[] */
+    /** @var Closure[] 执行成功 */
     private $thens = [];
-    /** @var Closure[] */
+    /** @var Closure[] 执行失败 */
     private $fails = [];
-    /** @var bool */
+    /** @var bool 是否已经执行 */
     private $exec = false;
 
     public function __construct(Rpc $rpc, string $name, array $argv)
@@ -33,8 +34,8 @@ class Transfer
         $this->rpc = $rpc;
         $this->methodName = $name;
         $this->methodArgv = $argv;
-        $this->execTime = time();
-        $this->execTimeout = $this->execTime + $this->execTimeLimit;
+        $this->createTime = time();
+        $this->stopTime = $this->createTime + $this->execTimeLimit;
     }
 
     /**
@@ -44,7 +45,7 @@ class Transfer
      */
     public function setExecTimeOut(int $time)
     {
-        $this->execTimeout = $time;
+        $this->stopTime = $time;
         return $this;
     }
 
@@ -87,7 +88,7 @@ class Transfer
      */
     public function getExecTimeout(): int
     {
-        return $this->execTimeout;
+        return $this->stopTime;
     }
 
     /**
@@ -165,7 +166,7 @@ class Transfer
         try {
             $reflect = new ReflectionFunction($function);
             $args = $this->bindParams($reflect, $vars);
-            return call_user_func_array($function, $args);
+            return $reflect->invokeArgs($args);
         } catch (ReflectionException $e) {
             throw new RpcFunctionInvokeException('function invoke failure', 0, $e);
         }

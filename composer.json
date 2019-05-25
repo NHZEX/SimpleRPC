@@ -15,8 +15,9 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^8.1",
-        "workerman/workerman": "^3.5",
-        "swoole/ide-helper": "^4.3"
+        "swoole/ide-helper": "^4.3",
+        "symfony/process": "^4.2",
+        "workerman/workerman": "^3.5"
     },
     "suggest": {
         "ext-swoole": "swoole support",
