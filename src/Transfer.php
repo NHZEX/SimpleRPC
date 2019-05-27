@@ -12,8 +12,12 @@ class Transfer
 {
     /** @var int 执行超时时长 */
     private $execTimeLimit = 600;
-    /** @var Rpc 绑定的Rpc实例 */
+    /** @var RpcTerminal 绑定的Rpc终端 */
     private $rpc;
+    /** @var string 请求Id */
+    private $requestId;
+    /** @var int|null 连接Id */
+    private $fd;
     /** @var int 方法创建时间 */
     private $createTime;
     /** @var int 方法超时时间 */
@@ -29,13 +33,45 @@ class Transfer
     /** @var bool 是否已经执行 */
     private $exec = false;
 
-    public function __construct(Rpc $rpc, string $name, array $argv)
+    public function __construct(RpcTerminal $rpc, string $name, array $argv)
     {
         $this->rpc = $rpc;
         $this->methodName = $name;
         $this->methodArgv = $argv;
         $this->createTime = time();
         $this->stopTime = $this->createTime + $this->execTimeLimit;
+    }
+
+    /**
+     * @return int|null
+     */
+    public function getFd(): ?int
+    {
+        return $this->fd;
+    }
+
+    /**
+     * @param int|null $fd
+     */
+    public function setFd(?int $fd): void
+    {
+        $this->fd = $fd;
+    }
+
+    /**
+     * @return string
+     */
+    public function getRequestId(): string
+    {
+        return $this->requestId;
+    }
+
+    /**
+     * @param string $requestId
+     */
+    public function setRequestId(string $requestId): void
+    {
+        $this->requestId = $requestId;
     }
 
     /**
@@ -51,9 +87,9 @@ class Transfer
 
     /**
      * 获取RPC实例
-     * @return Rpc
+     * @return RpcTerminal
      */
-    public function getRpc()
+    public function getRpcTerminal()
     {
         return $this->rpc;
     }
@@ -123,7 +159,7 @@ class Transfer
             return false;
         }
         try {
-            $this->rpc->execMethod($this);
+            $this->rpc->request($this);
             $this->exec = true;
         } catch (RpcFunctionInvokeException $e) {
             return false;
@@ -189,7 +225,7 @@ class Transfer
         foreach ($params as $param) {
             $class = $param->getClass();
             if ($class && $param->getPosition() === $left) {
-                if (Rpc::class === $class->getName()) {
+                if (RpcTerminal::class === $class->getName()) {
                     $argv[] = $this->rpc;
                     $left++;
                 } elseif (Transfer::class === $class->getName()) {

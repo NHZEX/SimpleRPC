@@ -3,24 +3,38 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
+use think\Container;
+
 abstract class RpcFacade
 {
-    private $rpc;
+    /**
+     * @var RpcTerminal
+     */
+    private $terminal;
 
-    public static function make(int $id = 0)
+    /**
+     * @var int|null
+     */
+    private $fd;
+
+    public static function make(?int $fd = null)
     {
-        return (new static(Rpc::getInstance($id)));
+        /** @var RpcTerminal $terminal */
+        $terminal = Container::getInstance()->make(RpcTerminal::class);
+        return (new static($terminal, $fd));
     }
 
-    public function __construct(Rpc $rpc)
+    public function __construct(RpcTerminal $rpc, ?int $fd)
     {
-        $this->rpc = $rpc;
+        $this->terminal = $rpc;
+        $this->fd = $fd;
     }
 
     abstract protected function getFacadeClass(): string;
 
-    public function __call($name, $arguments)
+
+    public function __call(string $name, $arguments)
     {
-        return $this->rpc->method("{$this->getFacadeClass()}.{$name}", ...$arguments);
+        return $this->terminal->method($this->fd, "{$this->getFacadeClass()}.{$name}", ...$arguments);
     }
 }

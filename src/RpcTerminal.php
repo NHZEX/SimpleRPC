@@ -3,72 +3,171 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
+use Exception;
+use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Tunnel\TunnelInterface;
-use Swoole\Timer;
+use LengthException;
 
 class RpcTerminal
 {
     /** @var TunnelInterface */
     private $tunnel;
-    /** @var int */
-    private $keepTime;
+    /** @var RpcProvider */
+    private $provider;
+    /** @var Transfer[] */
+    private $requestList = [];
 
-    public function __construct(TunnelInterface $tunnel)
+    public function __construct(TunnelInterface $tunnel, RpcProvider $provider)
     {
         $this->tunnel = $tunnel;
+        $this->provider = $provider->cloneInstance($this);
         $this->tunnel->setRpcTerminal($this);
     }
 
-    public function connected()
+    /**
+     * @return RpcProvider
+     */
+    public function getProvider(): RpcProvider
     {
-        $this->keepTime = Timer::tick(1000, function () {
-            $this->tunnel->send(TransferFrame::ping(), null);
-        });
+        return $this->provider;
+    }
+
+    /**
+     * 清理超时方法
+     * @return int
+     */
+    public function gcTransfer()
+    {
+        $gcTime = time();
+        /** @var string[] $gcWait */
+        $gcWait = [];
+        foreach ($this->requestList as $key => $transfer) {
+            if ($gcTime > $transfer->getExecTimeout()) {
+                $gcWait[] = $transfer;
+                unset($this->requestList[$key]);
+            }
+        }
+        return count($gcWait);
+    }
+
+    /**
+     * @return int
+     */
+    public function countTransfer()
+    {
+        return count($this->requestList);
+    }
+
+    /**
+     * @param int|null $fd
+     * @param int      $workerId
+     * @return bool
+     */
+    public function ping(?int $fd = null, $workerId = 0)
+    {
+        return $this->tunnel->send(TransferFrame::ping($fd, $workerId));
     }
 
     /**
      * RPC包接收处理
-     * @param string   $packet
-     * @param int|null $fd
+     * @param TransferFrame $frame
      * @return bool
+     * @throws RpcFunctionInvokeException
      */
-    public function receive(string $packet, ?int $fd)
+    public function receive(TransferFrame $frame)
     {
-        $frame = TransferFrame::make($packet, $fd);
-        if (false === $frame instanceof TransferFrame) {
-            return false;
-        }
-
         // 判断包类型
         switch ($frame->getOpcode()) {
             case TransferFrame::OPCODE_PING:
-                $this->tunnel->send(TransferFrame::pong(), $frame->getFd());
+                 $this->tunnel->send(TransferFrame::pong($frame->getFd()));
                 break;
             case TransferFrame::OPCODE_EXECUTE:
                 $this->handleRequest($frame);
                 break;
             case TransferFrame::OPCODE_RESULT:
-                $this->handleResponse($frame);
-                break;
             case TransferFrame::OPCODE_FAILURE:
-                $this->handleResponse($frame, true);
+                $this->handleResponse($frame, $frame->getOpcode() === TransferFrame::OPCODE_FAILURE);
                 break;
         }
 
         return true;
     }
 
-    public function closed()
+    /**
+     * 获取等待请求
+     * @param string $serial
+     * @return Transfer
+     */
+    private function getWaitRequest(string $serial)
     {
+        return $this->requestList[$serial];
+    }
 
+    /**
+     * 添加等待请求
+     * @param string   $serial
+     * @param Transfer $transfer
+     * @return $this
+     */
+    private function addWaitRequest(string $serial, Transfer $transfer)
+    {
+        $this->requestList[$serial] = $transfer;
+        return $this;
+    }
+
+    /**
+     * 移除等待请求
+     * @param string $serial
+     * @return self
+     */
+    private function delWaitRequest(string $serial)
+    {
+        unset($this->requestList[$serial]);
+        return $this;
+    }
+
+    /**
+     * 实例远程方法请求
+     * @param int|null $fd
+     * @param string   $name
+     * @param mixed    ...$argv
+     * @return Transfer
+     */
+    public function method(?int $fd, string $name, ...$argv)
+    {
+        $transfer = new Transfer($this, $name, $argv);
+        $transfer->setFd($fd);
+        return $transfer;
+    }
+
+    /**
+     * 请求一个远程方法
+     * @param Transfer $transfer
+     */
+    public function request(Transfer $transfer)
+    {
+        $methodName = $transfer->getMethodName();
+        if (($namelen = strlen($methodName)) > 255) {
+            throw new LengthException('方法名称长度超出支持范围 ' . $namelen);
+        }
+        $serial = $this->generateRandomString(16);
+        // 关联执行类
+        $this->addWaitRequest($serial, $transfer);
+        // 组包
+        $pack = pack('Ca16', $namelen, $serial);
+        $pack = $pack . $methodName . $transfer->getArgvSerialize();
+        // 发送包数据
+        $frame = new TransferFrame($transfer->getFd());
+        $frame->setOpcode($frame::OPCODE_EXECUTE);
+        $frame->setBody($pack);
+        $this->tunnel->send($frame);
     }
 
     /**
      * 处理响应
      * @param TransferFrame $frame
      * @return bool
-     * @throws RpcSendDataErrorException
      */
     protected function handleRequest(TransferFrame $frame)
     {
@@ -82,10 +181,10 @@ class RpcTerminal
             $result = $this->provider->invoke($name, $argv);
         } catch (Exception $exception) {
             // 记录错误信息
-            $this->respFailure($execid, $exception);
+            $this->respFailure($execid, $frame, $exception);
             return false;
         }
-        $this->respResult($execid, $result);
+        $this->respResult($execid, $frame, $result);
         return true;
     }
 
@@ -101,8 +200,69 @@ class RpcTerminal
         $execid = substr($body, 0, 16);
         $result = substr($body, 16);
 
-        $this->getExecMethod($execid)->response($result, $failure);
+        $this->getWaitRequest($execid)->response($result, $failure);
 
-        $this->delExecMethod($execid);
+        $this->delWaitRequest($execid);
+    }
+
+    /**
+     * 方法响应
+     * @param string        $requestId
+     * @param TransferFrame $recFrame
+     * @param mixed         $result
+     * @return bool
+     */
+    protected function respResult(string $requestId, TransferFrame $recFrame, $result)
+    {
+        $frame = new TransferFrame($recFrame->getFd(), $recFrame->getWorkerId());
+        $frame->setOpcode($frame::OPCODE_RESULT);
+        $frame->setBody($requestId . serialize($result));
+        return $this->tunnel->send($frame);
+    }
+
+    /**
+     * 方法响应
+     * @param string        $requestId
+     * @param TransferFrame $recFrame
+     * @param Exception     $e
+     * @return bool
+     */
+    protected function respFailure(string $requestId, TransferFrame $recFrame, Exception $e)
+    {
+        $trace = $e;
+        $traceContent = '';
+        do {
+            $traceContent .= "Position: {$trace->getFile()}:{$trace->getLine()}\n";
+            $traceContent .= 'Class: \\' . get_class($trace) . "\n";
+            $traceContent .= "Message: [{$trace->getCode()}] {$trace->getMessage()}\n";
+            $traceContent .= "{$trace->getTraceAsString()}\n";
+        } while ($trace = $trace->getPrevious());
+
+        $e = [
+            'code' => $e->getCode(),
+            'message' => $e->getMessage(),
+            'trace' => $traceContent,
+        ];
+
+        $frame = new TransferFrame($recFrame->getFd(), $recFrame->getWorkerId());
+        $frame->setOpcode($frame::OPCODE_FAILURE);
+        $frame->setBody($requestId . serialize($e));
+        return $this->tunnel->send($frame);
+    }
+
+    /**
+     * @param int $length
+     * @return string
+     */
+    protected function generateRandomString($length = 16)
+    {
+        static $characters = '0123456789abcdefghijklmnopqrstuvwxyz';
+        static $charactersLength = 36 - 1;
+
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[mt_rand(0, $charactersLength)];
+        }
+        return $randomString;
     }
 }

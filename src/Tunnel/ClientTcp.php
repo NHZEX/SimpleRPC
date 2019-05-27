@@ -4,8 +4,12 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Tunnel;
 
 use Closure;
+use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcUnpackingException;
+use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\RpcTerminal;
 use Swoole\Client;
+use Swoole\Timer;
 
 /**
  * Tcp 通道
@@ -20,7 +24,10 @@ class ClientTcp implements TunnelInterface
     private $port;
     /** @var Client */
     private $client;
-
+    /** @var bool  */
+    private $keep = false;
+    /** @var int */
+    private $keepTime;
     /** @var RpcTerminal */
     private $terminal;
 
@@ -51,11 +58,49 @@ class ClientTcp implements TunnelInterface
     }
 
     /**
+     * 开始心跳
+     */
+    private function startKeep()
+    {
+        if ($this->keep) {
+            $this->keepTime = Timer::tick(1000, function () {
+                if (false === $this->client->isConnected()) {
+                    $this->stopKeep();
+                    return;
+                }
+                $this->terminal->ping();
+            });
+        }
+    }
+
+    /**
+     * 停止心跳
+     */
+    private function stopKeep()
+    {
+        if ($this->keepTime && Timer::exists($this->keepTime)) {
+            Timer::clear($this->keepTime);
+        }
+        $this->keepTime = null;
+    }
+
+    /**
      * 开始连接服务器
      */
     public function connect()
     {
         $this->client->connect($this->host, $this->port);
+    }
+
+    public function reConnect(bool $force = false)
+    {
+        if ($this->client->isConnected()) {
+            if (false === $force) {
+                return;
+            }
+            $this->client->close();
+        }
+        Timer::after(1000, Closure::fromCallable([$this, 'connect']));
     }
 
     /**
@@ -71,13 +116,13 @@ class ClientTcp implements TunnelInterface
 
     /**
      * 发送数据
-     * @param string   $data
-     * @param int|null $fd
+     * @param TransferFrame   $frame
      * @return bool
      */
-    public function send(string $data, ?int $fd = null): bool
+    public function send(TransferFrame $frame): bool
     {
-        var_dump('clientTcpSend: ' . bin2hex($data));
+        $data = $frame->packet();
+        echo "clientTcpSend: $frame\n";
         return $this->client->send($data) === strlen($data);
     }
 
@@ -90,18 +135,24 @@ class ClientTcp implements TunnelInterface
         ['host' => $host, 'port' => $port] = $client->getsockname();
         echo "connect {$host}:{$port}\n";
 
-        $this->terminal->connected();
+        $this->startKeep();
     }
 
     /**
      * 收到数据回调
      * @param Client $client
      * @param string $data
+     * @throws RpcUnpackingException
+     * @throws RpcFunctionInvokeException
      */
     private function onReceive(Client $client, string $data)
     {
-        echo 'receive: ' . bin2hex(substr($data, 0, 36)) . PHP_EOL;
-        $this->terminal->receive($data, null);
+        $packet = TransferFrame::make($data, null);
+        echo "receive: $packet\n";
+        if (false === $packet instanceof TransferFrame) {
+            throw new RpcUnpackingException('数据解包错误');
+        }
+        $this->terminal->receive($packet);
     }
 
     /**
@@ -111,6 +162,8 @@ class ClientTcp implements TunnelInterface
     private function onError(Client $client)
     {
         echo "error {$client->errCode}: " . swoole_strerror($client->errCode) . PHP_EOL;
+
+        $this->reConnect();
     }
 
     /**
@@ -119,7 +172,9 @@ class ClientTcp implements TunnelInterface
      */
     private function onClose(Client $client)
     {
-        ['host' => $host, 'port' => $port] = $client->getsockname();
-        echo "close {$host}:{$port}\n";
+        echo "link close\n";
+
+        $this->reConnect();
+        $this->stopKeep();
     }
 }

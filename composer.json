@@ -11,12 +11,13 @@
     "minimum-stability": "stable",
     "require": {
         "php": "~7.1",
-        "ext-zlib": "*"
+        "ext-zlib": "*",
+        "ext-sockets": "*"
     },
     "require-dev": {
+        "nhzex/tp-swoole": "dev-master",
         "phpunit/phpunit": "^8.1",
         "swoole/ide-helper": "^4.3",
-        "symfony/process": "^4.2",
         "workerman/workerman": "^3.5"
     },
     "suggest": {
@@ -45,6 +46,10 @@
         "packagist": {
             "type": "composer",
             "url": "https://packagist.laravel-china.org"
+        },
+        "tp-swoole": {
+            "type": "path",
+            "url": "../tp-swoole"
         }
     }
 }

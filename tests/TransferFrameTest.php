@@ -9,6 +9,30 @@ use PHPUnit\Framework\TestCase;
 class TransferFrameTest extends TestCase
 {
     /**
+     * @dataProvider descProvider
+     * @param $op
+     * @param $str
+     */
+    public function testDesc($op, $str)
+    {
+        $frame = new TransferFrame();
+        $frame->setOpcode($op);
+        $this->assertEquals($str, $frame->getOpcodeDesc());
+    }
+
+    public function descProvider()
+    {
+        return [
+            [TransferFrame::OPCODE_PONG, 'PONG'],
+            [TransferFrame::OPCODE_PING, 'PING'],
+            [TransferFrame::OPCODE_EXECUTE, 'EXECUTE'],
+            [TransferFrame::OPCODE_RESULT, 'RESULT'],
+            [TransferFrame::OPCODE_FAILURE, 'FAILURE'],
+            [-1, 'UNDEFINED'],
+        ];
+    }
+
+    /**
      * 协议打包&解包测试
      * @dataProvider prcFrameProvider
      * @param int    $opcode
@@ -49,9 +73,9 @@ class TransferFrameTest extends TestCase
         $frame->setFlags(TransferFrame::FLAG_COMPRESSION);
         $frame->setOpcode(2);
         $frame->setBody('abc');
-        $this->assertEquals('00000010010102039600e84b4c4a0600', bin2hex($frame->packet()));
+        $this->assertEquals('0000001401010200000000039600e84b4c4a0600', bin2hex($frame->packet()));
 
-        $unframe = TransferFrame::make(hex2bin('00000010010102039600e84b4c4a0600'));
+        $unframe = TransferFrame::make(hex2bin('0000001401010200000000039600e84b4c4a0600'));
         $this->assertEquals(1, $unframe->getFlags());
         $this->assertEquals(2, $unframe->getOpcode());
         $this->assertEquals('abc', $unframe->getBody());

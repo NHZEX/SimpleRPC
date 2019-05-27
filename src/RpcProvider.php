@@ -11,58 +11,35 @@ use ReflectionFunction;
 use ReflectionFunctionAbstract;
 use ReflectionMethod;
 
-class RpcServerProvider
+class RpcProvider
 {
     /**
-     * @var self PRC服务提供商实例
-     */
-    protected static $instance;
-
-    /**
-     * @var array 服务提供商
+     * 服务提供商
+     * @var array
      */
     protected $provider = [];
 
     /**
-     * @var array 服务实例
+     * 服务实例
+     * @var array
      */
     protected $instances = [];
 
     /**
-     * @var Rpc
+     * Rpc操作终端
+     * @var RpcTerminal
      */
-    private $rpc;
-
-    /**
-     * 获取实例
-     * @return self
-     */
-    public static function getInstance()
-    {
-        if (null === self::$instance) {
-            self::$instance = new self();
-        }
-
-        return self::$instance;
-    }
-
-    /**
-     * 销毁实例
-     */
-    public static function destroyInstance()
-    {
-        self::$instance = null;
-    }
+    private $terminal;
 
     /**
      * 克隆Rpc专用实例
-     * @param Rpc $rpc
-     * @return RpcServerProvider
+     * @param RpcTerminal $rpc
+     * @return $this
      */
-    public function cloneInstance(Rpc $rpc)
+    public function cloneInstance(RpcTerminal $rpc)
     {
-        $instance = clone self::$instance;
-        $instance->rpc = $rpc;
+        $instance = clone $this;
+        $instance->terminal = $rpc;
 
         return $instance;
     }
@@ -216,7 +193,7 @@ class RpcServerProvider
     }
 
     /**
-     * @param ReflectionFunctionAbstract $reflect
+     * @param ReflectionFunctionAbstract  $reflect
      * @param                             $vars
      * @return array
      */
@@ -226,8 +203,8 @@ class RpcServerProvider
         if ($reflect->getNumberOfParameters()) {
             $params = $reflect->getParameters();
             if ($class = $params[0]->getClass()) {
-                if (Rpc::class === $class->getName()) {
-                    $argv[] = $this->rpc;
+                if (RpcTerminal::class === $class->getName()) {
+                    $argv[] = $this->terminal;
                 }
             }
         }

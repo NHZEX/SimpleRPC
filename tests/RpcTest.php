@@ -6,9 +6,10 @@ namespace HZEX\SimpleRpc\Tests;
 use Closure;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
 use HZEX\SimpleRpc\Exception\RpcFunctionNotExistException;
-use HZEX\SimpleRpc\Rpc;
-use HZEX\SimpleRpc\RpcServerProvider;
+use HZEX\SimpleRpc\RpcProvider;
+use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\Stub\Tests;
+use HZEX\SimpleRpc\Stub\VirtualTunnel;
 use HZEX\SimpleRpc\Transfer;
 use PHPUnit\Framework\TestCase;
 
@@ -24,7 +25,7 @@ class RpcTest extends TestCase
      */
     public function testServerProvider(string $name, $concrete, ?string $callName = null)
     {
-        $provider = RpcServerProvider::getInstance();
+        $provider = new RpcProvider();
 
         $provider->bind($name, $concrete);
 
@@ -33,8 +34,6 @@ class RpcTest extends TestCase
         }
 
         $this->assertEquals('success', $provider->invoke($callName));
-
-        RpcServerProvider::destroyInstance();
     }
 
     public function serverProviderDataProvider()
@@ -63,18 +62,18 @@ class RpcTest extends TestCase
      */
     public function testInvokeInjection()
     {
-        $rpc = Rpc::getInstance(789);
-        RpcServerProvider::getInstance()->bind('test', function (Rpc $rpc, $test) {
+        $mockTransmit = new VirtualTunnel();
+        $provider = new RpcProvider();
+        $provider->bind('test', function (RpcTerminal $terminal, $test) {
             $this->assertEquals(123, $test);
-            $this->assertTrue($rpc->getId() === 789);
+            $this->assertInstanceOf(RpcTerminal::class, $terminal);
             return 'success';
         });
-        $rpc->bindServerProvider(RpcServerProvider::getInstance());
-        RpcServerProvider::destroyInstance();
-        $provider = $rpc->getServerProvider();
+
+        $rpc = new RpcTerminal($mockTransmit, $provider);
+        $provider = $rpc->getProvider();
         $result = $provider->invoke('test', [123]);
         $this->assertEquals('success', $result);
-        Rpc::destroyInstance($rpc->getId());
     }
 
     /**
@@ -83,15 +82,16 @@ class RpcTest extends TestCase
      */
     public function testTransferInjection()
     {
-        $rpc = Rpc::getInstance(789);
-        RpcServerProvider::getInstance()
-            ->bind('test', function (Rpc $rpc, $a, $b, $c) {
-                $this->assertEquals(789, $rpc->getId());
-                $this->assertEquals(6, $a + $b + $c);
-                return 'success';
-            });
-        $rpc->bindServerProvider(RpcServerProvider::getInstance());
-        $result = $rpc->getServerProvider()->invoke('test', [1, 2, 3]);
+        $mockTransmit = new VirtualTunnel();
+        $provider = new RpcProvider();
+        $provider->bind('test', function (RpcTerminal $terminal, $a, $b, $c) {
+            $this->assertEquals(6, $a + $b + $c);
+            $this->assertInstanceOf(RpcTerminal::class, $terminal);
+            return 'success';
+        });
+
+        $rpc = new RpcTerminal($mockTransmit, $provider);
+        $result = $rpc->getProvider()->invoke('test', [1, 2, 3]);
         $this->assertEquals('success', $result);
     }
 
@@ -100,21 +100,20 @@ class RpcTest extends TestCase
      */
     public function testTransferInvoke()
     {
-        $rpc = Rpc::getInstance(789);
-        $rpc->bindServerProvider(RpcServerProvider::getInstance());
+        $mockTransmit = new VirtualTunnel();
+        $provider = new RpcProvider();
+        $rpc = new RpcTerminal($mockTransmit, $provider);
 
         $method = $rpc
-            ->method('test')
-            ->then(function (Rpc $rpc, Transfer $transfer, $result) {
-                $this->assertEquals(789, $rpc->getId());
+            ->method(1, 'test')
+            ->then(function (RpcTerminal $terminal, Transfer $transfer, $result) {
                 $this->assertEquals('test', $transfer->getMethodName());
-                $this->assertEquals(789, $transfer->getRpc()->getId());
+                $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals('success', $result);
             })
-            ->fail(function (Rpc $rpc, Transfer $transfer, $code, $message, $trace) {
-                $this->assertEquals(789, $rpc->getId());
+            ->fail(function (RpcTerminal $terminal, Transfer $transfer, $code, $message, $trace) {
                 $this->assertEquals('test', $transfer->getMethodName());
-                $this->assertEquals(789, $transfer->getRpc()->getId());
+                $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals([0, 'asd', '123'], [$code, $message, $trace]);
             });
 

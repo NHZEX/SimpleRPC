@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Protocol;
 
+use ReflectionClass;
+use ReflectionException;
+
 class TransferFrame
 {
     /** @var int 包版本 0-255 */
@@ -44,6 +47,46 @@ class TransferFrame
     protected $flags = 0;
     /** @var null|int */
     protected $fd = null;
+    /** @var int */
+    protected $workerId = 0;
+
+    private static $cache;
+
+    /**
+     * TransferFrame constructor.
+     * @param int|null $fd
+     * @param int      $workerId
+     */
+    public function __construct(?int $fd = null, $workerId = 0)
+    {
+        $this->fd = $fd;
+        $this->workerId = $workerId;
+        $this->flags = self::FLAG_COMPRESSION;
+        $this->analyze();
+    }
+
+    private function analyze()
+    {
+        if (null !== self::$cache) {
+            return;
+        }
+        try {
+            $ref = new ReflectionClass($this);
+        } catch (ReflectionException $e) {
+            return;
+        }
+        self::$cache = [];
+        foreach ($ref->getConstants() as $name => $value) {
+            $pos = strpos($name, '_');
+            if (false === $pos) {
+                $prefix = 'ROOT';
+            } else {
+                $prefix = substr($name, 0, $pos);
+                $name = substr($name, $pos + 1);
+            }
+            self::$cache[$prefix][$value] = $name;
+        }
+    }
 
     /**
      * @param string|null $package
@@ -52,52 +95,54 @@ class TransferFrame
      */
     public static function make(string $package, ?int $fd = null): ?self
     {
-        $that = new self();
+        $that = new self($fd);
         if (false === $that->unpack($package) instanceof self) {
             return null;
         }
-        $that->fd = $fd;
         return $that;
     }
 
     /**
-     * @return string
+     * @param int|null $fd
+     * @param int      $workerId
+     * @return self
      */
-    public static function ping(): string
+    public static function ping(?int $fd = null, $workerId = 0): self
     {
-        static $cache;
+        $ping = new self($fd, $workerId);
+        $ping->opcode = self::OPCODE_PING;
+        $ping->flags = 0;
+        return $ping;
+    }
 
-        if (empty($cache)) {
-            $ping = new self();
-            $ping->opcode = self::OPCODE_PING;
-            $ping->flags = 0;
-            $cache = $ping->packet();
-        }
-        return $cache;
+    /**
+     * @param int|null $fd
+     * @param int      $workerId
+     * @return self
+     */
+    public static function pong(?int $fd = null, $workerId = 0): self
+    {
+        $ping = new self($fd, $workerId);
+        $ping->opcode = self::OPCODE_PONG;
+        $ping->flags = 0;
+        return $ping;
     }
 
     /**
      * @return string
      */
-    public static function pong(): string
+    public function getOpcodeDesc()
     {
-        static $cache;
-
-        if (empty($cache)) {
-            $ping = new self();
-            $ping->opcode = self::OPCODE_PONG;
-            $ping->flags = 0;
-            $cache = $ping->packet();
-        }
-        return $cache;
+        return self::$cache['OPCODE'][$this->opcode] ?? 'UNDEFINED';
     }
 
     /**
+     * 封包
      * @return string
      */
     public function packet(): string
     {
-        if ($this->flags & self::FLAG_COMPRESSION) {
+        if ($this->isCompression()) {
             $data = gzdeflate($this->body);
         } else {
             $data = $this->body;
@@ -105,13 +150,14 @@ class TransferFrame
         $hash = hash('adler32', $data);
         $length = strlen($data);
 
-        // NCCCH8 = 11
+        // NCCCH8 = 15
         $package = pack(
-            'NCCCH8',
-            $length + 11,
+            'NCCCNH8',
+            $length + 15,
             self::VERSION,
             $this->flags,
             $this->opcode,
+            $this->workerId,
             $hash
         );
 
@@ -121,30 +167,34 @@ class TransferFrame
     }
 
     /**
+     * 解包
      * @param string $data
      * @return TransferFrame
      */
     public function unpack(string $data): self
     {
         [
-            'length' => $length, 'version' => $version, 'flags' => $flags, 'opcode' => $opcode, 'hash' => $hash,
-        ] = unpack('Nlength/Cversion/Cflags/Copcode/H8hash', $data); // 4+1+1+1+4
+            'l' => $length, 'v' => $version, 'flags' => $flags, 'op' => $opcode, 'worker' => $worker, 'h' => $hash,
+        ] = unpack('Nl/Cv/Cflags/Cop/Nworker/H8h', $data); // 4+1+1+1+4+4
 
         if (self::VERSION !== $version) {
+            // 版本不匹配
             return null;
         }
 
         // 获取Body
-        $data = substr($data, 11, $length) ?: '';
+        $data = substr($data, 15, $length) ?: '';
 
         // 校验数据
         if ($hash !== hash('adler32', $data)) {
+            // 数据校验错误
             return null;
         }
 
         // 设置操作码
         $this->opcode = $opcode;
         $this->flags = $flags;
+        $this->workerId = $worker;
 
         // 解压Body
         if ($this->isCompression()) {
@@ -163,6 +213,24 @@ class TransferFrame
     public function getFd(): ?int
     {
         return $this->fd;
+    }
+
+    /**
+     * @return int
+     */
+    public function getWorkerId(): int
+    {
+        return $this->workerId;
+    }
+
+    /**
+     * @param int $workerId
+     * @return $this
+     */
+    public function setWorkerId(int $workerId)
+    {
+        $this->workerId = $workerId;
+        return $this;
     }
 
     /**
@@ -225,5 +293,18 @@ class TransferFrame
     public function isCompression(): bool
     {
         return self::FLAG_COMPRESSION === ($this->flags & self::FLAG_COMPRESSION);
+    }
+
+    public function __toString(): string
+    {
+        $fd = $this->fd ?: 'null';
+        $info = "tFrame: opcode={$this->getOpcodeDesc()}[{$this->opcode}], flags={$this->flags}";
+        $info .= ", worker={$this->workerId}, fd={$fd}, body_len = " . strlen($this->body);
+        return $info;
+    }
+
+    public function __debugInfo()
+    {
+        return [$this->__toString()];
     }
 }

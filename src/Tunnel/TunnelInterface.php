@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Tunnel;
 
+use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\RpcTerminal;
 
 interface TunnelInterface
@@ -11,9 +12,8 @@ interface TunnelInterface
 
     /**
      * 发送数据
-     * @param string   $data
-     * @param int|null $fd
+     * @param TransferFrame   $frame
      * @return bool
      */
-    public function send(string $data, ?int $fd): bool;
+    public function send(TransferFrame $frame): bool;
 }
