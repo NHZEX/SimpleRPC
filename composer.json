@@ -46,10 +46,6 @@
         "packagist": {
             "type": "composer",
             "url": "https://packagist.laravel-china.org"
-        },
-        "tp-swoole": {
-            "type": "path",
-            "url": "../tp-swoole"
         }
     }
 }
