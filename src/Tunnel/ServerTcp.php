@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Tunnel;
 
+use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\RpcTerminal;
 use Swoole\Server;
@@ -13,10 +14,13 @@ class ServerTcp implements TunnelInterface
     private $server;
     /** @var RpcTerminal */
     private $terminal;
+    /** @var RpcHandleInterface */
+    private $handle;
 
-    public function __construct(Server $server)
+    public function __construct(Server $server, RpcHandleInterface $handle)
     {
         $this->server = $server;
+        $this->handle = $handle;
     }
 
     public function setRpcTerminal(RpcTerminal $terminal): TunnelInterface
@@ -32,9 +36,13 @@ class ServerTcp implements TunnelInterface
      */
     public function send(TransferFrame $frame): bool
     {
+        if (true === $this->handle->onSend($frame->getFd(), $frame)) {
+            return true;
+        }
+
         $frame->setWorkerId($this->server->worker_id);
         $data = $frame->packet();
-        echo "serverTcpSend >> $frame\n";
+        // echo "serverTcpSend >> $frame\n";
         return $this->server->send($frame->getFd(), $data) === strlen($data);
     }
 }

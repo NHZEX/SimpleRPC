@@ -5,44 +5,80 @@ namespace HZEX\SimpleRpc;
 
 use Closure;
 use HZEX\SimpleRpc\Exception\RpcUnpackingException;
+use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
+use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
 use HZEX\TpSwoole\Facade\Event;
+use HZEX\TpSwoole\Manager;
+use HZEX\TpSwoole\Swoole\SwooleServerTcpInterface;
 use Swoole\Server;
+use think\Container;
 use Throwable;
 
-class RpcServer
+class RpcServer implements SwooleServerTcpInterface
 {
-    /** @var Server */
+    /**
+     * @var Server
+     */
     private $server;
-    /** @var ServerTcp */
+    /**
+     * @var string
+     */
+    private $host = '0.0.0.0';
+    /**
+     * @var int
+     */
+    private $port = 9502;
+    /**
+     * @var RpcHandleInterface
+     */
+    private $observer;
+    /**
+     * @var ServerTcp
+     */
     private $tunnel;
-    /** @var Server\Port */
-    private $port;
-    /** @var RpcTerminal */
+    /**
+     * @var Server\Port
+     */
+    private $serverPort;
+    /**
+     * @var RpcTerminal
+     */
     private $terminal;
-    /** @var Closure */
-    private $eventConnect;
-    /** @var Closure */
-    private $eventClose;
-    /** @var bool */
+    /**
+     * @var bool
+     */
     private $inited = false;
-
+    /**
+     * @var array
+     */
     private $fdCache = [];
 
     /**
-     * @param Server      $server
+     * RpcServer constructor.
+     * @param Server             $server
+     * @param RpcHandleInterface $observer
+     */
+    public function __construct(Server $server, RpcHandleInterface $observer)
+    {
+        $this->server = $server;
+        $this->observer = $observer;
+    }
+
+    /**
      * @param RpcProvider $provider
+     * @param string      $host
+     * @param int         $port
      * @return RpcServer
      */
-    public static function listen(Server $server, RpcProvider $provider)
+    public function listen(RpcProvider $provider, string $host = '0.0.0.0', int $port = 9502)
     {
-        $that = new self();
+        $this->host = $host ?: $this->host;
+        $this->port = $port;
+        $this->serverPort = $this->server->addlistener($host, $port, SWOOLE_SOCK_TCP);
 
-        $that->server = $server;
-        $that->port = $server->addlistener('0.0.0.0', 9502, SWOOLE_SOCK_TCP);
-
-        $that->port->set([
+        $this->serverPort->set([
             'open_length_check' => true,  // 启用包长检测协议
             'package_max_length' => 524288, // 包最大长度 512kib
             'package_length_type' => 'N', // 无符号、网络字节序、4字节
@@ -50,17 +86,17 @@ class RpcServer
             'package_body_offset' => 0,
         ]);
 
-        $that->port->on('Connect', Closure::fromCallable([$that, 'onConnect']));
-        $that->port->on('Receive', Closure::fromCallable([$that, 'onReceive']));
-        $that->port->on('Close', Closure::fromCallable([$that, 'onClose']));
+        $this->serverPort->on('Connect', Closure::fromCallable([$this, 'onConnect']));
+        $this->serverPort->on('Receive', Closure::fromCallable([$this, 'onReceive']));
+        $this->serverPort->on('Close', Closure::fromCallable([$this, 'onClose']));
 
-        $that->tunnel = new ServerTcp($server);
-        $that->terminal = new RpcTerminal($that->tunnel, $provider);
+        $this->tunnel = new ServerTcp($this->server);
+        $this->terminal = new RpcTerminal($this->tunnel, $provider);
 
-        Event::listen('swoole.onWorkerStart', Closure::fromCallable([$that, 'workerInit']));
-        Event::listen('swoole.onPipeMessage', Closure::fromCallable([$that, 'handlePipeMessage']));
+        Event::listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerInit']));
+        Event::listen('swoole.onPipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
 
-        return $that;
+        return $this;
     }
 
     /**
@@ -76,7 +112,8 @@ class RpcServer
         }
         $this->inited = true;
 
-        echo "rpc:worker#$workerId = {$server->worker_id} = {$server->worker_pid}\n";
+        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
+        Container::getInstance()->instance(RpcServer::class, $this);
 
         $server->tick(5000, function () use ($server) {
             echo "RPC_GC#{$server->worker_id}: {$this->terminal->gcTransfer()}/{$this->terminal->countTransfer()}\n";
@@ -91,7 +128,7 @@ class RpcServer
      */
     public function handlePipeMessage(Server $server, int $srcWorkerId, $message)
     {
-        echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
+        // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
         if ($message instanceof TransferFrame) {
             try {
                 $this->terminal->receive($message);
@@ -99,27 +136,6 @@ class RpcServer
                 echo (string) $throwable;
             }
         }
-    }
-
-    /**
-     * @param Closure $eventConnect
-     */
-    public function setEventConnect(Closure $eventConnect): void
-    {
-        $this->eventConnect = $eventConnect;
-    }
-
-    /**
-     * @param Closure $eventClose
-     */
-    public function setEventClose(Closure $eventClose): void
-    {
-        $this->eventClose = $eventClose;
-    }
-
-
-    private function __construct()
-    {
     }
 
     /**
@@ -154,14 +170,18 @@ class RpcServer
      * @param int    $fd
      * @param int    $reactorId
      */
-    private function onConnect(Server $server, int $fd, int $reactorId): void
+    public function onConnect(Server $server, int $fd, int $reactorId): void
     {
-        echo "connect#{$server->worker_id}: $fd\n";
+        // echo "connect#{$server->worker_id}: $fd\n";
         $this->fdCache[$fd] = $server->worker_id;
-        // TODO 添加Id绑定
-        if ($this->eventConnect instanceof Closure) {
-            call_user_func($this->eventConnect, $this, $fd);
+
+        $connection = Connection::make($server->getClientInfo($fd) ?: []);
+
+        if (false === $this->observer->auth($fd, $connection)) {
+            $server->close($fd);
         }
+
+        $this->observer->onConnect($fd, $connection);
     }
 
     /**
@@ -173,6 +193,11 @@ class RpcServer
      */
     public function onReceive(Server $server, int $fd, int $reactorId, string $data): void
     {
+        $connection = Connection::make($server->getClientInfo($fd) ?: []);
+        if ($this->observer->onReceive($fd, $data, $connection)) {
+            return;
+        }
+        RpcContext::setFd($fd);
         try {
             // echo "receive#{$server->worker_id}: $fd >> " . bin2hex(substr($data, 0, 36)) . PHP_EOL;
             $packet = TransferFrame::make($data, $fd);
@@ -181,15 +206,16 @@ class RpcServer
             }
 
             if ($server->worker_id === $packet->getWorkerId()) {
-                echo "receive#$server->worker_id\n";
+                // echo "receive#$server->worker_id\n";
                 $this->terminal->receive($packet);
             } else {
-                echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
+                // echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
                 $server->sendMessage($packet, $packet->getWorkerId());
             }
         } catch (Throwable $throwable) {
-            echo (string) $throwable;
+            Manager::logServerError($throwable);
         }
+        RpcContext::destroy();
     }
 
     /**
@@ -200,11 +226,8 @@ class RpcServer
      */
     public function onClose(Server $server, int $fd, int $reactorId): void
     {
-        echo "close#{$server->worker_id}: $fd, $reactorId\n";
+        $connection = Connection::make($server->getClientInfo($fd) ?: []);
+        $this->observer->onClose($fd, $connection);
         unset($this->fdCache[$fd]);
-        // TODO 移除Id绑定
-        if ($this->eventClose instanceof Closure) {
-            call_user_func($this->eventClose, $this, $fd);
-        }
     }
 }

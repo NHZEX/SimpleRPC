@@ -17,12 +17,12 @@
     "require-dev": {
         "nhzex/tp-swoole": "dev-master",
         "phpunit/phpunit": "^8.1",
-        "swoole/ide-helper": "^4.3",
-        "workerman/workerman": "^3.5"
+        "swoole/ide-helper": "^4.3"
     },
     "suggest": {
         "ext-swoole": "swoole support",
-        "workerman/workerman": "workerman support"
+        "topthink/think-container": "facade support",
+        "nhzex/tp-swoole": "server support"
     },
     "autoload": {
         "psr-4": {

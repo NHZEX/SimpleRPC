@@ -72,15 +72,6 @@ class RpcCommTest extends TestCase
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
     }
 
-    public function testMakeRpcFacade()
-    {
-        $mockTransmit = new VirtualTunnel();
-        $provider = new RpcProvider();
-
-        $crpc = new RpcTerminal($mockTransmit, $provider);
-        $this->assertEquals(new TestsRpcFacade($crpc), TestsRpcFacade::make(889));
-    }
-
     /**
      * @throws Exception
      */
