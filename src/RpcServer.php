@@ -90,7 +90,7 @@ class RpcServer implements SwooleServerTcpInterface
         $this->serverPort->on('Receive', Closure::fromCallable([$this, 'onReceive']));
         $this->serverPort->on('Close', Closure::fromCallable([$this, 'onClose']));
 
-        $this->tunnel = new ServerTcp($this->server);
+        $this->tunnel = new ServerTcp($this->server, $this->observer);
         $this->terminal = new RpcTerminal($this->tunnel, $provider);
 
         Event::listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerInit']));
