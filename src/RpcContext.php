@@ -14,9 +14,9 @@ class RpcContext
         self::$context[Co::getCid()]['fd'] = $fd;
     }
 
-    public static function getFd(): int
+    public static function getFd(): ?int
     {
-        return self::$context[Co::getCid()]['fd'];
+        return self::$context[Co::getCid()]['fd'] ?? null;
     }
 
     public static function destroy()

@@ -80,7 +80,7 @@ class RpcTerminal
         // 判断包类型
         switch ($frame->getOpcode()) {
             case TransferFrame::OPCODE_PING:
-                 $this->tunnel->send(TransferFrame::pong($frame->getFd()));
+                $this->tunnel->send(TransferFrame::pong($frame->getFd()));
                 break;
             case TransferFrame::OPCODE_EXECUTE:
                 $this->handleRequest($frame);
@@ -152,6 +152,8 @@ class RpcTerminal
             throw new LengthException('方法名称长度超出支持范围 ' . $namelen);
         }
         $serial = $this->generateRandomString(16);
+        // 设置请求ID
+        $transfer->setRequestId($serial);
         // 关联执行类
         $this->addWaitRequest($serial, $transfer);
         // 组包
