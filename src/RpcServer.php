@@ -197,7 +197,6 @@ class RpcServer implements SwooleServerTcpInterface
         if ($this->observer->onReceive($fd, $data, $connection)) {
             return;
         }
-        RpcContext::setFd($fd);
         try {
             // echo "receive#{$server->worker_id}: $fd >> " . bin2hex(substr($data, 0, 36)) . PHP_EOL;
             $packet = TransferFrame::make($data, $fd);
@@ -207,7 +206,9 @@ class RpcServer implements SwooleServerTcpInterface
 
             if ($server->worker_id === $packet->getWorkerId()) {
                 // echo "receive#$server->worker_id\n";
+                RpcContext::setFd($fd);
                 $this->terminal->receive($packet);
+                RpcContext::destroy();
             } else {
                 // echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
                 $server->sendMessage($packet, $packet->getWorkerId());
@@ -215,7 +216,6 @@ class RpcServer implements SwooleServerTcpInterface
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
         }
-        RpcContext::destroy();
     }
 
     /**
