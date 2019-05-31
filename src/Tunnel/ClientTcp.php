@@ -179,7 +179,6 @@ class ClientTcp implements TunnelInterface
         // echo "connect {$host}:{$port}\n";
 
         $this->startKeep();
-        $this->handle->onConnect();
     }
 
     /**
@@ -199,6 +198,13 @@ class ClientTcp implements TunnelInterface
         if (false === $packet instanceof TransferFrame) {
             throw new RpcUnpackingException('数据解包错误');
         }
+
+        // 客户端连接成功
+        if ($packet::OPCODE_LINK === $packet->getOpcode()) {
+            $this->handle->onConnect();
+            return;
+        }
+
         $this->terminal->receive($packet);
     }
 

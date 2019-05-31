@@ -179,8 +179,11 @@ class RpcServer implements SwooleServerTcpInterface
 
         if (false === $this->observer->auth($fd, $connection)) {
             $server->close($fd);
+            return;
         }
 
+        // 连接建立
+        $this->tunnel->send(TransferFrame::link($fd));
         $this->observer->onConnect($fd, $connection);
     }
 

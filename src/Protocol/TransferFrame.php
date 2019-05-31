@@ -21,6 +21,8 @@ class TransferFrame
     public const OPCODE_PING = 0x04;
     /** @var int 操作码 PONG */
     public const OPCODE_PONG = 0x05;
+    /** @var int 操作码 LINK */
+    public const OPCODE_LINK = 0x06;
 
     /** @var int 标志 压缩 */
     public const FLAG_COMPRESSION = 0x01;
@@ -124,6 +126,19 @@ class TransferFrame
     {
         $ping = new self($fd, $workerId);
         $ping->opcode = self::OPCODE_PONG;
+        $ping->flags = 0;
+        return $ping;
+    }
+
+    /**
+     * @param int|null $fd
+     * @param int      $workerId
+     * @return self
+     */
+    public static function link(?int $fd = null, $workerId = 0): self
+    {
+        $ping = new self($fd, $workerId);
+        $ping->opcode = self::OPCODE_LINK;
         $ping->flags = 0;
         return $ping;
     }
