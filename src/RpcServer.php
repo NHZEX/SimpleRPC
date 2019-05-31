@@ -131,7 +131,9 @@ class RpcServer implements SwooleServerTcpInterface
         // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
         if ($message instanceof TransferFrame) {
             try {
+                RpcContext::setFd($message->getFd());
                 $this->terminal->receive($message);
+                RpcContext::destroy();
             } catch (Throwable $throwable) {
                 echo (string) $throwable;
             }
