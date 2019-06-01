@@ -203,7 +203,7 @@ class RpcClient
      * 连接成功回调
      * @param Client $client
      */
-    private function onConnect(Client $client)
+    protected function onConnect(Client $client)
     {
         $this->startKeep();
     }
@@ -215,7 +215,7 @@ class RpcClient
      * @throws RpcUnpackingException
      * @throws RpcFunctionInvokeException
      */
-    private function onReceive(Client $client, string $data)
+    protected function onReceive(Client $client, string $data)
     {
         if ($this->observer->onReceive($data)) {
             return;
@@ -239,7 +239,7 @@ class RpcClient
      * 发生错误回调
      * @param Client $client
      */
-    private function onError(Client $client)
+    protected function onError(Client $client)
     {
         echo "error {$client->errCode}: " . swoole_strerror($client->errCode) . PHP_EOL;
 
@@ -266,7 +266,7 @@ class RpcClient
      * 连接关闭回调
      * @param Client $client
      */
-    private function onClose(Client $client)
+    protected function onClose(Client $client)
     {
         $this->observer->onClose();
         $this->stopKeep();
