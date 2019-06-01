@@ -7,6 +7,7 @@ use Exception;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
 use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\RpcTerminal;
+use HZEX\SimpleRpc\SnowFlake;
 use HZEX\SimpleRpc\Stub\TestsRpcFacade;
 use HZEX\SimpleRpc\Stub\VirtualTunnel;
 use HZEX\SimpleRpc\Transfer;
@@ -43,6 +44,7 @@ class RpcCommTest extends TestCase
         });
 
         $rpc = new RpcTerminal($mockTransmit, $provider);
+        $rpc->setSnowFlake(new SnowFlake(1));
 
         $rpc->method(1, 'testSuccess', 1, 2, 3)
             ->then(function ($result) {
@@ -84,6 +86,7 @@ class RpcCommTest extends TestCase
         $mockTransmit = new VirtualTunnel();
         $provider = new RpcProvider();
         $crpc = new RpcTerminal($mockTransmit, $provider);
+        $crpc->setSnowFlake(new SnowFlake(1));
 
         $f = new TestsRpcFacade($crpc, 1);
         $f->runAutoUpdate('success', 122, true)
@@ -101,6 +104,7 @@ class RpcCommTest extends TestCase
             }
         });
         $srpc = new RpcTerminal($mockTransmit, $provider);
+        $srpc->setSnowFlake(new SnowFlake(1));
 
         // 服务的响应请求
         $this->assertTrue($srpc->receive($mockTransmit::getData()));

@@ -111,6 +111,7 @@ class RpcServer implements SwooleServerTcpInterface
             return;
         }
         $this->inited = true;
+        $this->terminal->setSnowFlake(new SnowFlake($workerId));
 
         Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
         Container::getInstance()->instance(RpcServer::class, $this);

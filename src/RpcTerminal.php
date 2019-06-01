@@ -33,7 +33,6 @@ class RpcTerminal
         $this->tunnel = $tunnel;
         $this->provider = $provider->cloneInstance($this);
         $this->tunnel->setRpcTerminal($this);
-        $this->snowflake = new SnowFlake($this->tunnel->getWorkerId());
     }
 
     /**
@@ -42,6 +41,17 @@ class RpcTerminal
     public function getProvider(): RpcProvider
     {
         return $this->provider;
+    }
+
+    /**
+     * 设置雪花ID生成器
+     * @param SnowFlake $snowFlake
+     * @return self
+     */
+    public function setSnowFlake(SnowFlake $snowFlake): self
+    {
+        $this->snowflake = $snowFlake;
+        return $this;
     }
 
     /**

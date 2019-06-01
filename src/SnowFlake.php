@@ -55,7 +55,7 @@ final class SnowFlake
 
             self::$inited = true;
         }
-        if ($workerId > self::$maxWorkerId) {
+        if (self::$maxWorkerId < $workerId || 0 > $workerId) {
             throw new LengthException('机器编号编号取值范围为：0-' . self::$maxWorkerId);
         }
         $this->workerId = $workerId;

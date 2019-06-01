@@ -9,6 +9,7 @@ use HZEX\SimpleRpc\Exception\RpcUnpackingException;
 use HZEX\SimpleRpc\Observer\ClientHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\RpcTerminal;
+use HZEX\SimpleRpc\SnowFlake;
 use Swoole\Client;
 use Swoole\Timer;
 use think\Container;
@@ -160,6 +161,7 @@ class ClientTcp implements TunnelInterface
     public function setRpcTerminal(RpcTerminal $terminal): TunnelInterface
     {
         $this->terminal = $terminal;
+        $this->terminal->setSnowFlake(new SnowFlake(1));
         Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
         return $this;
     }
