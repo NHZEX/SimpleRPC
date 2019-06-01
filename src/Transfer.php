@@ -14,7 +14,7 @@ class Transfer
     private $execTimeLimit = 600;
     /** @var RpcTerminal 绑定的Rpc终端 */
     private $rpc;
-    /** @var string 请求Id */
+    /** @var int 请求Id */
     private $requestId;
     /** @var int|null 连接Id */
     private $fd;
@@ -59,17 +59,17 @@ class Transfer
     }
 
     /**
-     * @return string
+     * @return int
      */
-    public function getRequestId(): string
+    public function getRequestId(): int
     {
         return $this->requestId;
     }
 
     /**
-     * @param string $requestId
+     * @param int $requestId
      */
-    public function setRequestId(string $requestId): void
+    public function setRequestId(int $requestId): void
     {
         $this->requestId = $requestId;
     }
@@ -158,12 +158,8 @@ class Transfer
         if ($this->exec) {
             return false;
         }
-        try {
-            $this->rpc->request($this);
-            $this->exec = true;
-        } catch (RpcFunctionInvokeException $e) {
-            return false;
-        }
+        $this->rpc->request($this);
+        $this->exec = true;
         return true;
     }
 

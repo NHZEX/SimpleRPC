@@ -11,18 +11,29 @@ use LengthException;
 
 class RpcTerminal
 {
-    /** @var TunnelInterface */
+    /**
+     * @var TunnelInterface
+     */
     private $tunnel;
-    /** @var RpcProvider */
+    /**
+     * @var RpcProvider
+     */
     private $provider;
-    /** @var Transfer[] */
+    /**
+     * @var Transfer[]
+     */
     private $requestList = [];
+    /**
+     * @var SnowFlake
+     */
+    private $snowflake;
 
     public function __construct(TunnelInterface $tunnel, RpcProvider $provider)
     {
         $this->tunnel = $tunnel;
         $this->provider = $provider->cloneInstance($this);
         $this->tunnel->setRpcTerminal($this);
+        $this->snowflake = new SnowFlake($this->tunnel->getWorkerId());
     }
 
     /**
@@ -96,21 +107,21 @@ class RpcTerminal
 
     /**
      * 获取等待请求
-     * @param string $serial
+     * @param int $serial
      * @return Transfer
      */
-    private function getWaitRequest(string $serial)
+    private function getWaitRequest(int $serial)
     {
         return $this->requestList[$serial];
     }
 
     /**
      * 添加等待请求
-     * @param string   $serial
+     * @param int      $serial
      * @param Transfer $transfer
      * @return $this
      */
-    private function addWaitRequest(string $serial, Transfer $transfer)
+    private function addWaitRequest(int $serial, Transfer $transfer)
     {
         $this->requestList[$serial] = $transfer;
         return $this;
@@ -118,10 +129,10 @@ class RpcTerminal
 
     /**
      * 移除等待请求
-     * @param string $serial
+     * @param int $serial
      * @return self
      */
-    private function delWaitRequest(string $serial)
+    private function delWaitRequest(int $serial)
     {
         unset($this->requestList[$serial]);
         return $this;
@@ -151,13 +162,13 @@ class RpcTerminal
         if (($namelen = strlen($methodName)) > 255) {
             throw new LengthException('方法名称长度超出支持范围 ' . $namelen);
         }
-        $serial = $this->generateRandomString(16);
+        $serial = $this->snowflake->nextId();
         // 设置请求ID
         $transfer->setRequestId($serial);
         // 关联执行类
         $this->addWaitRequest($serial, $transfer);
         // 组包
-        $pack = pack('Ca16', $namelen, $serial);
+        $pack = pack('CJ', $namelen, $serial);
         $pack = $pack . $methodName . $transfer->getArgvSerialize();
         // 发送包数据
         $frame = new TransferFrame($transfer->getFd());
@@ -174,9 +185,9 @@ class RpcTerminal
     protected function handleRequest(TransferFrame $frame)
     {
         $body = $frame->getBody();
-        ['len' => $nlen, 'execid' => $execid] = unpack('Clen/a16execid', $body);
-        $name = substr($body, 17, $nlen);
-        $argv = substr($body, 17 + $nlen);
+        ['len' => $nlen, 'id' => $execid] = unpack('Clen/Jid', $body);
+        $name = substr($body, 9, $nlen);
+        $argv = substr($body, 9 + $nlen);
         $argv = unserialize($argv);
 
         try {
@@ -199,37 +210,36 @@ class RpcTerminal
     protected function handleResponse(TransferFrame $frame, bool $failure = false)
     {
         $body = $frame->getBody();
-        $execid = substr($body, 0, 16);
-        $result = substr($body, 16);
+        ['id' => $id] = unpack('Jid', $body);
+        $result = substr($body, 8);
+        $this->getWaitRequest($id)->response($result, $failure);
 
-        $this->getWaitRequest($execid)->response($result, $failure);
-
-        $this->delWaitRequest($execid);
+        $this->delWaitRequest($id);
     }
 
     /**
      * 方法响应
-     * @param string        $requestId
+     * @param int           $requestId
      * @param TransferFrame $recFrame
      * @param mixed         $result
      * @return bool
      */
-    protected function respResult(string $requestId, TransferFrame $recFrame, $result)
+    protected function respResult(int $requestId, TransferFrame $recFrame, $result)
     {
         $frame = new TransferFrame($recFrame->getFd(), $recFrame->getWorkerId());
         $frame->setOpcode($frame::OPCODE_RESULT);
-        $frame->setBody($requestId . serialize($result));
+        $frame->setBody(pack('J', $requestId) . serialize($result));
         return $this->tunnel->send($frame);
     }
 
     /**
      * 方法响应
-     * @param string        $requestId
+     * @param int           $requestId
      * @param TransferFrame $recFrame
      * @param Exception     $e
      * @return bool
      */
-    protected function respFailure(string $requestId, TransferFrame $recFrame, Exception $e)
+    protected function respFailure(int $requestId, TransferFrame $recFrame, Exception $e)
     {
         $trace = $e;
         $traceContent = '';
@@ -248,7 +258,7 @@ class RpcTerminal
 
         $frame = new TransferFrame($recFrame->getFd(), $recFrame->getWorkerId());
         $frame->setOpcode($frame::OPCODE_FAILURE);
-        $frame->setBody($requestId . serialize($e));
+        $frame->setBody(pack('J', $requestId) . serialize($e));
         return $this->tunnel->send($frame);
     }
 

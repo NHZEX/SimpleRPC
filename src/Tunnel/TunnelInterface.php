@@ -8,7 +8,18 @@ use HZEX\SimpleRpc\RpcTerminal;
 
 interface TunnelInterface
 {
+    /**
+     * 设置终端通道关联
+     * @param RpcTerminal $terminal
+     * @return TunnelInterface
+     */
     public function setRpcTerminal(RpcTerminal $terminal): self;
+
+    /**
+     * 获取工人Id
+     * @return int
+     */
+    public function getWorkerId(): int;
 
     /**
      * 发送数据

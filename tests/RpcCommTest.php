@@ -5,7 +5,6 @@ namespace HZEX\SimpleRpc\Tests;
 
 use Exception;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
-use HZEX\SimpleRpc\Exception\RpcSendDataErrorException;
 use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\Stub\TestsRpcFacade;
@@ -22,22 +21,24 @@ class RpcCommTest extends TestCase
 
     /**
      * @throws RpcFunctionInvokeException
-     * @throws RpcSendDataErrorException
      */
     public function testRpcExec()
     {
         $mockTransmit = new VirtualTunnel();
+        $count = 0;
 
         $provider = new RpcProvider();
-        $provider->bind('testSuccess', function ($a, $b, $c) {
+        $provider->bind('testSuccess', function ($a, $b, $c) use (&$count) {
             $this->assertEquals(6, $a + $b + $c);
+            $count++;
             return 'success';
         });
         $provider->bind('testFail', function () {
             throw new Exception('test', 1234);
         });
-        $provider->bind('testInj', function (RpcTerminal $terminal) {
+        $provider->bind('testInj', function (RpcTerminal $terminal) use (&$count) {
             $this->assertInstanceOf(RpcTerminal::class, $terminal);
+            $count++;
             return 'success';
         });
 
@@ -52,24 +53,27 @@ class RpcCommTest extends TestCase
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
         $rpc->method(1, 'testFail')
-            ->fail(function ($code, $message, $trace) {
+            ->fail(function ($code, $message, $trace) use (&$count) {
                 $this->assertEquals(1234, $code);
                 $this->assertEquals('test', $message);
                 $this->assertNotEmpty($trace);
+                $count++;
             })
             ->exec();
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
         $rpc->method(1, 'testInj')
-            ->then(function (RpcTerminal $terminal, Transfer $transfer, $result) {
+            ->then(function (RpcTerminal $terminal, Transfer $transfer, $result) use (&$count) {
                 $this->assertEquals('success', $result);
                 $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals('testInj', $transfer->getMethodName());
+                $count++;
             })
             ->exec();
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
+        $this->assertEquals(4, $count);
     }
 
     /**

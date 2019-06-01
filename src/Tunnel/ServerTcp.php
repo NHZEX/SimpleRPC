@@ -29,6 +29,11 @@ class ServerTcp implements TunnelInterface
         return $this;
     }
 
+    public function getWorkerId(): int
+    {
+        return $this->server->worker_id;
+    }
+
     /**
      * 发送数据
      * @param TransferFrame   $frame

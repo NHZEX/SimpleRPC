@@ -47,6 +47,11 @@ class VirtualTunnel implements TunnelInterface
         return $this;
     }
 
+    public function getWorkerId(): int
+    {
+        return 254;
+    }
+
     /**
      * 发送数据
      * @param TransferFrame $frame
