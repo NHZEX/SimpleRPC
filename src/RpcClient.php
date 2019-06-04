@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Closure;
-use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
 use HZEX\SimpleRpc\Exception\RpcUnpackingException;
 use HZEX\SimpleRpc\Observer\ClientHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -212,8 +211,8 @@ class RpcClient
      * 收到数据回调
      * @param Client $client
      * @param string $data
+     * @throws Exception\RpcInvalidResponseException
      * @throws RpcUnpackingException
-     * @throws RpcFunctionInvokeException
      */
     protected function onReceive(Client $client, string $data)
     {

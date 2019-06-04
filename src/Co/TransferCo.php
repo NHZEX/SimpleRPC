@@ -184,7 +184,7 @@ class TransferCo implements TransferInterface
 
         // 远程执行失败抛出异常
         if ($this->isFailure) {
-            throw (new RpcExecuteException($this->result['code'], $this->result['message']))
+            throw (new RpcExecuteException($this->result['message'], $this->result['code']))
                 ->setRemoteTrace($this->result['trace']);
         }
 
