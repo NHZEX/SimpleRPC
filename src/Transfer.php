@@ -5,6 +5,8 @@ namespace HZEX\SimpleRpc;
 
 use Closure;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use InvalidArgumentException;
+use LogicException;
 use ReflectionException;
 use ReflectionFunction;
 
@@ -26,12 +28,18 @@ class Transfer
     private $methodName;
     /** @var array 执行参数 */
     private $methodArgv;
+    /** @var Middleware[] */
+    private $middlewares = [];
     /** @var Closure[] 执行成功 */
     private $thens = [];
     /** @var Closure[] 执行失败 */
     private $fails = [];
     /** @var bool 是否已经执行 */
     private $exec = false;
+    /** @var bool 是否失败响应 */
+    private $isFailure;
+    /** @var mixed 响应内容 */
+    private $result;
 
     public function __construct(RpcTerminal $rpc, string $name, array $argv)
     {
@@ -119,12 +127,39 @@ class Transfer
     }
 
     /**
+     * @return mixed
+     */
+    public function getResult()
+    {
+        return $this->result;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isFailure(): bool
+    {
+        return $this->isFailure;
+    }
+
+    /**
      * 获取执行超时
      * @return int
      */
     public function getExecTimeout(): int
     {
         return $this->stopTime;
+    }
+
+    /**
+     * 添加中间件
+     * @param Closure $middleware
+     * @return Transfer
+     */
+    public function middleware(Closure $middleware): self
+    {
+        $this->middlewares[] = $middleware;
+        return $this;
     }
 
     /**
@@ -171,19 +206,53 @@ class Transfer
      */
     public function response(string $result, bool $failure)
     {
-        $result = unserialize($result);
+        $this->isFailure = $failure;
+        $this->result = unserialize($result);
+        // 调度中间件
+        if (false === empty($this->middlewares)) {
+            $this->resolve()($this);
+        }
+        // 处理响应回调
         if ($failure) {
             foreach ($this->fails as $closure) {
                 // [code => int, message => string, trace => string]
-                $this->invokeFunction($closure, $result['code'], $result['message'], $result['trace']);
+                $this->invokeFunction(
+                    $closure,
+                    $this->result['code'],
+                    $this->result['message'],
+                    $this->result['trace']
+                );
             }
         } else {
             foreach ($this->thens as $closure) {
-                $this->invokeFunction($closure, $result);
+                $this->invokeFunction($closure, $this->result);
             }
         }
         $this->fails = [];
         $this->thens = [];
+    }
+
+    protected function resolve()
+    {
+        return function (Transfer $request) {
+            if (0 === count($this->middlewares)) {
+                return $request;
+            }
+
+            $middleware = array_shift($this->middlewares);
+
+            if (null === $middleware || false === $middleware instanceof Closure) {
+                throw new InvalidArgumentException('The queue was exhausted, with no response returned');
+            }
+
+            $response = $middleware($request, $this->resolve());
+
+            if (!$response instanceof Transfer) {
+                throw new LogicException('The middleware must return Transfer instance');
+            }
+
+            return $response;
+        };
     }
 
     /**

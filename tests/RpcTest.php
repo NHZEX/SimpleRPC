@@ -120,4 +120,43 @@ class RpcTest extends TestCase
         $method->response(serialize('success'), false);
         $method->response(serialize(['code' => 0, 'message' => 'asd', 'trace' => '123']), true);
     }
+
+    /**
+     * @throws RpcFunctionInvokeException
+     */
+    public function testTransferMiddleware()
+    {
+        $mockTransmit = new VirtualTunnel();
+        $provider = new RpcProvider();
+        $rpc = new RpcTerminal($mockTransmit, $provider);
+
+        $middlewareCount = 2;
+        $method = $rpc
+            ->method(1, 'test')
+            ->middleware(function (Transfer $transfer, Closure $next) use (&$middlewareCount) {
+                $this->assertEquals('success', $transfer->getResult());
+
+                $middlewareCount--;
+                return $next($transfer);
+            })
+            ->middleware(function (Transfer $transfer, Closure $next) use (&$middlewareCount) {
+                $middlewareCount--;
+                return $next($transfer);
+            })
+            ->then(function (RpcTerminal $terminal, Transfer $transfer, $result) {
+                $this->assertEquals('test', $transfer->getMethodName());
+                $this->assertInstanceOf(RpcTerminal::class, $terminal);
+                $this->assertEquals('success', $result);
+            })
+            ->fail(function (RpcTerminal $terminal, Transfer $transfer, $code, $message, $trace) {
+                $this->assertEquals('test', $transfer->getMethodName());
+                $this->assertInstanceOf(RpcTerminal::class, $terminal);
+                $this->assertEquals([0, 'asd', '123'], [$code, $message, $trace]);
+            });
+
+        $method->response(serialize('success'), false);
+        $method->response(serialize(['code' => 0, 'message' => 'asd', 'trace' => '123']), true);
+
+        $this->assertEquals(0, $middlewareCount);
+    }
 }
