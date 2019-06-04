@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Exception;
+use HZEX\SimpleRpc\Co\TransferCo;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Tunnel\TunnelInterface;
 use LengthException;
@@ -23,6 +25,10 @@ class RpcTerminal
      * @var Transfer[]
      */
     private $requestList = [];
+    /**
+     * @var TransferInterface[]
+     */
+    private $requestCoList = [];
     /**
      * @var SnowFlake
      */
@@ -163,6 +169,20 @@ class RpcTerminal
     }
 
     /**
+     * 实例远程方法请求
+     * @param int|null $fd
+     * @param string   $name
+     * @param mixed    ...$argv
+     * @return TransferCo
+     */
+    public function methodCo(?int $fd, string $name, ...$argv)
+    {
+        $transfer = new TransferCo($this, $name, $argv);
+        $transfer->setFd($fd);
+        return $transfer;
+    }
+
+    /**
      * 请求一个远程方法
      * @param Transfer $transfer
      */
@@ -185,6 +205,36 @@ class RpcTerminal
         $frame->setOpcode($frame::OPCODE_EXECUTE);
         $frame->setBody($pack);
         $this->tunnel->send($frame);
+    }
+
+    /**
+     * 请求一个远程方法
+     * @param TransferInterface $transfer
+     * @return bool
+     * @throws RpcSendDataException
+     */
+    public function requestCo(TransferInterface $transfer)
+    {
+        $methodName = $transfer->getMethodName();
+        if (($namelen = strlen($methodName)) > 255) {
+            throw new LengthException('方法名称长度超出支持范围 ' . $namelen);
+        }
+        $serial = $this->snowflake->nextId();
+        // 设置请求ID
+        $transfer->setRequestId($serial);
+        // 关联执行类
+        $this->requestCoList[$serial] = $transfer;
+        // 组包
+        $pack = pack('CJ', $namelen, $serial);
+        $pack = $pack . $methodName . $transfer->getArgvSerialize();
+        // 发送包数据
+        $frame = new TransferFrame($transfer->getFd());
+        $frame->setOpcode($frame::OPCODE_EXECUTE);
+        $frame->setBody($pack);
+        if (false === $this->tunnel->send($frame)) {
+            throw new RpcSendDataException();
+        }
+        return true;
     }
 
     /**
@@ -222,9 +272,16 @@ class RpcTerminal
         $body = $frame->getBody();
         ['id' => $id] = unpack('Jid', $body);
         $result = substr($body, 8);
-        $this->getWaitRequest($id)->response($result, $failure);
 
-        $this->delWaitRequest($id);
+        if (isset($this->requestCoList[$id])) {
+            // 协程请求处理
+            $this->requestCoList[$id]->response($result, $failure);
+            unset($this->requestCoList[$id]);
+        } else {
+            // 异步请求处理
+            $this->getWaitRequest($id)->response($result, $failure);
+            $this->delWaitRequest($id);
+        }
     }
 
     /**
