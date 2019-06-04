@@ -56,6 +56,11 @@ interface TransferInterface
     public function getArgvSerialize(): string;
 
     /**
+     * @return int
+     */
+    public function getStopTime(): int;
+
+    /**
      * 提交执行执行
      * @return mixed
      */

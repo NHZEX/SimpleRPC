@@ -20,15 +20,30 @@ class TransferCo implements TransferInterface
      * @var RpcTerminal
      */
     private $rpc;
-    /** @var int 请求Id */
+    /**
+     * 请求Id
+     * @var int
+     */
     private $requestId;
-    /** @var int|null 连接Id */
+    /**
+     * 连接Id
+     * @var int|null
+     */
     private $fd;
-    /** @var string 方法名称 */
+    /**
+     * 方法名称
+     * @var string
+     */
     private $methodName;
-    /** @var array 执行参数 */
+    /**
+     * 执行参数
+     * @var array
+     */
     private $methodArgv;
-    /** @var bool 是否失败响应 */
+    /**
+     * 是否失败响应
+     * @var bool
+     */
     private $isFailure;
     /**
      * 原始响应内容
@@ -40,6 +55,21 @@ class TransferCo implements TransferInterface
      * @var mixed
      */
     private $result;
+    /**
+     * 超时限制
+     * @var int
+     */
+    private $timeout = 60;
+    /**
+     * 方法启动时间
+     * @var int
+     */
+    private $startTime = 0;
+    /**
+     * 方法启动时间
+     * @var int
+     */
+    private $stopTime = 0;
 
     public function __construct(RpcTerminal $rpc, string $name, array $argv)
     {
@@ -127,6 +157,14 @@ class TransferCo implements TransferInterface
     }
 
     /**
+     * @return int
+     */
+    public function getStopTime(): int
+    {
+        return $this->stopTime;
+    }
+
+    /**
      * 提交执行执行
      * @return mixed
      * @throws RpcExecuteException
@@ -134,8 +172,12 @@ class TransferCo implements TransferInterface
      */
     public function exec()
     {
+        // 记录启动时间
+        $this->startTime = time();
+        // 计算停止时间
+        $this->stopTime = $this->startTime + $this->timeout;
         // 发生执行请求
-        $this->rpc->requestCo($this);
+        $this->rpc->request($this);
 
         // 让出控制权
         Co::yield();

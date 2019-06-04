@@ -5,11 +5,12 @@ namespace HZEX\SimpleRpc;
 
 use Exception;
 use HZEX\SimpleRpc\Co\TransferCo;
-use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Tunnel\TunnelInterface;
 use LengthException;
+use Throwable;
 
 class RpcTerminal
 {
@@ -22,13 +23,9 @@ class RpcTerminal
      */
     private $provider;
     /**
-     * @var Transfer[]
-     */
-    private $requestList = [];
-    /**
      * @var TransferInterface[]
      */
-    private $requestCoList = [];
+    private $requestList = [];
     /**
      * @var SnowFlake
      */
@@ -67,14 +64,28 @@ class RpcTerminal
     public function gcTransfer()
     {
         $gcTime = time();
-        /** @var string[] $gcWait */
+        /** @var TransferInterface[] $gcWait */
         $gcWait = [];
         foreach ($this->requestList as $key => $transfer) {
-            if ($gcTime > $transfer->getExecTimeout()) {
+            if ($gcTime > $transfer->getStopTime()) {
                 $gcWait[] = $transfer;
                 unset($this->requestList[$key]);
             }
         }
+        // TODO 改为使用队列处理超时请求
+        go(function () use ($gcWait) {
+            try {
+                foreach ($gcWait as $transfer) {
+                    $transfer->response(serialize([
+                        'code' => -1,
+                        'message' => 'rpc request processing timeout',
+                        'trace' => '',
+                    ]), false);
+                }
+            } catch (Throwable $e) {
+                echo (string) $e;
+            }
+        });
         return count($gcWait);
     }
 
@@ -100,7 +111,7 @@ class RpcTerminal
      * RPC包接收处理
      * @param TransferFrame $frame
      * @return bool
-     * @throws RpcFunctionInvokeException
+     * @throws RpcInvalidResponseException
      */
     public function receive(TransferFrame $frame)
     {
@@ -124,20 +135,20 @@ class RpcTerminal
     /**
      * 获取等待请求
      * @param int $serial
-     * @return Transfer
+     * @return TransferInterface
      */
-    private function getWaitRequest(int $serial)
+    private function getWaitRequest(int $serial): ?TransferInterface
     {
-        return $this->requestList[$serial];
+        return $this->requestList[$serial] ?? null;
     }
 
     /**
      * 添加等待请求
-     * @param int      $serial
-     * @param Transfer $transfer
+     * @param int               $serial
+     * @param TransferInterface $transfer
      * @return $this
      */
-    private function addWaitRequest(int $serial, Transfer $transfer)
+    private function addWaitRequest(int $serial, TransferInterface $transfer)
     {
         $this->requestList[$serial] = $transfer;
         return $this;
@@ -184,9 +195,11 @@ class RpcTerminal
 
     /**
      * 请求一个远程方法
-     * @param Transfer $transfer
+     * @param TransferInterface $transfer
+     * @return bool
+     * @throws RpcSendDataException
      */
-    public function request(Transfer $transfer)
+    public function request(TransferInterface $transfer)
     {
         $methodName = $transfer->getMethodName();
         if (($namelen = strlen($methodName)) > 255) {
@@ -197,33 +210,6 @@ class RpcTerminal
         $transfer->setRequestId($serial);
         // 关联执行类
         $this->addWaitRequest($serial, $transfer);
-        // 组包
-        $pack = pack('CJ', $namelen, $serial);
-        $pack = $pack . $methodName . $transfer->getArgvSerialize();
-        // 发送包数据
-        $frame = new TransferFrame($transfer->getFd());
-        $frame->setOpcode($frame::OPCODE_EXECUTE);
-        $frame->setBody($pack);
-        $this->tunnel->send($frame);
-    }
-
-    /**
-     * 请求一个远程方法
-     * @param TransferInterface $transfer
-     * @return bool
-     * @throws RpcSendDataException
-     */
-    public function requestCo(TransferInterface $transfer)
-    {
-        $methodName = $transfer->getMethodName();
-        if (($namelen = strlen($methodName)) > 255) {
-            throw new LengthException('方法名称长度超出支持范围 ' . $namelen);
-        }
-        $serial = $this->snowflake->nextId();
-        // 设置请求ID
-        $transfer->setRequestId($serial);
-        // 关联执行类
-        $this->requestCoList[$serial] = $transfer;
         // 组包
         $pack = pack('CJ', $namelen, $serial);
         $pack = $pack . $methodName . $transfer->getArgvSerialize();
@@ -265,7 +251,7 @@ class RpcTerminal
      * 处理请求
      * @param TransferFrame $frame
      * @param bool          $failure
-     * @throws RpcFunctionInvokeException
+     * @throws RpcInvalidResponseException
      */
     protected function handleResponse(TransferFrame $frame, bool $failure = false)
     {
@@ -273,15 +259,13 @@ class RpcTerminal
         ['id' => $id] = unpack('Jid', $body);
         $result = substr($body, 8);
 
-        if (isset($this->requestCoList[$id])) {
-            // 协程请求处理
-            $this->requestCoList[$id]->response($result, $failure);
-            unset($this->requestCoList[$id]);
-        } else {
-            // 异步请求处理
-            $this->getWaitRequest($id)->response($result, $failure);
-            $this->delWaitRequest($id);
+        if (null === ($request = $this->getWaitRequest($id))) {
+            throw new RpcInvalidResponseException("invalid request: does not exist id #{$id}");
         }
+
+        // 请求响应处理
+        $this->getWaitRequest($id)->response($result, $failure);
+        $this->delWaitRequest($id);
     }
 
     /**

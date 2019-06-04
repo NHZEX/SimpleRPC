@@ -1,8 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc;
+namespace HZEX\SimpleRpc\Co;
 
+use HZEX\SimpleRpc\Exception\RpcExecuteException;
+use HZEX\SimpleRpc\Exception\RpcSendDataException;
+use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
 
 abstract class RpcFacadeCo
@@ -32,9 +35,18 @@ abstract class RpcFacadeCo
 
     abstract protected function getFacadeClass(): string;
 
-
+    /**
+     * @param string $name
+     * @param        $arguments
+     * @return mixed
+     * @throws RpcExecuteException
+     * @throws RpcSendDataException
+     */
     public function __call(string $name, $arguments)
     {
-        return $this->terminal->methodCo($this->fd, "{$this->getFacadeClass()}.{$name}", ...$arguments);
+        return $this
+            ->terminal
+            ->methodCo($this->fd, "{$this->getFacadeClass()}.{$name}", ...$arguments)
+            ->exec();
     }
 }

@@ -10,7 +10,7 @@ use LogicException;
 use ReflectionException;
 use ReflectionFunction;
 
-class Transfer
+class Transfer implements TransferInterface
 {
     /** @var int 执行超时时长 */
     private $execTimeLimit = 600;
@@ -50,6 +50,11 @@ class Transfer
         $this->stopTime = $this->createTime + $this->execTimeLimit;
     }
 
+    public function getCid(): int
+    {
+        return -1;
+    }
+
     /**
      * @return int|null
      */
@@ -60,10 +65,12 @@ class Transfer
 
     /**
      * @param int|null $fd
+     * @return self
      */
-    public function setFd(?int $fd): void
+    public function setFd(?int $fd): TransferInterface
     {
         $this->fd = $fd;
+        return $this;
     }
 
     /**
@@ -76,10 +83,12 @@ class Transfer
 
     /**
      * @param int $requestId
+     * @return self
      */
-    public function setRequestId(int $requestId): void
+    public function setRequestId(int $requestId): TransferInterface
     {
         $this->requestId = $requestId;
+        return $this;
     }
 
     /**
@@ -97,7 +106,7 @@ class Transfer
      * 获取RPC实例
      * @return RpcTerminal
      */
-    public function getRpcTerminal()
+    public function getRpcTerminal(): RpcTerminal
     {
         return $this->rpc;
     }
@@ -143,10 +152,9 @@ class Transfer
     }
 
     /**
-     * 获取执行超时
      * @return int
      */
-    public function getExecTimeout(): int
+    public function getStopTime(): int
     {
         return $this->stopTime;
     }
