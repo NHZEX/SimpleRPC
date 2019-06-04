@@ -195,6 +195,7 @@ class Transfer implements TransferInterface
     /**
      * 提交执行执行
      * @return bool
+     * @throws Exception\RpcSendDataException
      */
     public function exec()
     {

@@ -123,7 +123,9 @@ class RpcClient
             $this->client->close();
         }
         if (!$this->reConnectTime || !Timer::exists($this->reConnectTime)) {
-            $this->reConnectTime = Timer::after(1000, Closure::fromCallable([$this, 'connect']));
+            $this->reConnectTime = Timer::after(1000, function () {
+                $this->client->connect($this->host, $this->port);
+            });
         }
     }
 

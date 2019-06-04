@@ -48,6 +48,6 @@ class ServerTcp implements TunnelInterface
         $frame->setWorkerId($this->server->worker_id);
         $data = $frame->packet();
         // echo "serverTcpSend >> $frame\n";
-        return $this->server->send($frame->getFd(), $data) === strlen($data);
+        return $this->server->send($frame->getFd(), $data);
     }
 }
