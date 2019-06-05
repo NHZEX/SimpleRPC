@@ -80,7 +80,7 @@ class RpcTerminal
                         'code' => -1,
                         'message' => 'rpc request processing timeout',
                         'trace' => '',
-                    ]), false);
+                    ]), true);
                 }
             } catch (Throwable $e) {
                 echo (string) $e;
