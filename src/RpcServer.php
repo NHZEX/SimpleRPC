@@ -100,48 +100,6 @@ class RpcServer implements SwooleServerTcpInterface
     }
 
     /**
-     * 工作进程初始化
-     * 世界分裂由此开始
-     * @param Server $server
-     * @param int    $workerId
-     */
-    public function workerInit(Server $server, int $workerId)
-    {
-        if ($this->server->taskworker) {
-            return;
-        }
-        $this->inited = true;
-        $this->terminal->setSnowFlake(new SnowFlake($workerId));
-
-        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
-        Container::getInstance()->instance(RpcServer::class, $this);
-
-        $server->tick(5000, function () use ($server) {
-            echo "RPC_GC#{$server->worker_id}: {$this->terminal->gcTransfer()}/{$this->terminal->countTransfer()}\n";
-        });
-    }
-
-    /**
-     * 处理进程通信消息
-     * @param Server $server
-     * @param int    $srcWorkerId
-     * @param        $message
-     */
-    public function handlePipeMessage(Server $server, int $srcWorkerId, $message)
-    {
-        // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
-        if ($message instanceof TransferFrame) {
-            try {
-                RpcContext::setFd($message->getFd());
-                $this->terminal->receive($message);
-                RpcContext::destroy();
-            } catch (Throwable $throwable) {
-                echo (string) $throwable;
-            }
-        }
-    }
-
-    /**
      * @return RpcTerminal
      */
     public function getTerminal(): RpcTerminal
@@ -168,6 +126,28 @@ class RpcServer implements SwooleServerTcpInterface
     }
 
     /**
+     * 工作进程初始化
+     * 世界分裂由此开始
+     * @param Server $server
+     * @param int    $workerId
+     */
+    public function workerInit(Server $server, int $workerId)
+    {
+        if ($this->server->taskworker) {
+            return;
+        }
+        $this->inited = true;
+        $this->terminal->setSnowFlake(new SnowFlake($workerId));
+
+        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
+        Container::getInstance()->instance(RpcServer::class, $this);
+
+        $server->tick(5000, function () use ($server) {
+            echo "RPC_GC#{$server->worker_id}: {$this->terminal->gcTransfer()}/{$this->terminal->countTransfer()}\n";
+        });
+    }
+
+    /**
      * 连接进入（Tcp）
      * @param Server $server
      * @param int    $fd
@@ -175,19 +155,43 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onConnect(Server $server, int $fd, int $reactorId): void
     {
-        // echo "connect#{$server->worker_id}: $fd\n";
-        $this->fdCache[$fd] = $server->worker_id;
+        try {
+            // echo "connect#{$server->worker_id}: $fd\n";
+            $this->fdCache[$fd] = $server->worker_id;
 
-        $connection = Connection::make($server->getClientInfo($fd) ?: []);
+            $connection = Connection::make($server->getClientInfo($fd) ?: []);
 
-        if (false === $this->observer->auth($fd, $connection)) {
-            $server->close($fd);
-            return;
+            if (false === $this->observer->auth($fd, $connection)) {
+                $server->close($fd);
+                return;
+            }
+
+            // 连接建立
+            $this->tunnel->send(TransferFrame::link($fd));
+            $this->observer->onConnect($fd, $connection);
+        } catch (Throwable $throwable) {
+            Manager::logServerError($throwable);
         }
+    }
 
-        // 连接建立
-        $this->tunnel->send(TransferFrame::link($fd));
-        $this->observer->onConnect($fd, $connection);
+    /**
+     * 处理进程通信消息
+     * @param Server $server
+     * @param int    $srcWorkerId
+     * @param        $message
+     */
+    public function handlePipeMessage(Server $server, int $srcWorkerId, $message)
+    {
+        try {
+            // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
+            if ($message instanceof TransferFrame) {
+                RpcContext::setFd($message->getFd());
+                $this->terminal->receive($message);
+                RpcContext::destroy();
+            }
+        } catch (Throwable $throwable) {
+            Manager::logServerError($throwable);
+        }
     }
 
     /**
@@ -199,11 +203,11 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onReceive(Server $server, int $fd, int $reactorId, string $data): void
     {
-        $connection = Connection::make($server->getClientInfo($fd) ?: []);
-        if ($this->observer->onReceive($fd, $data, $connection)) {
-            return;
-        }
         try {
+            $connection = Connection::make($server->getClientInfo($fd) ?: []);
+            if ($this->observer->onReceive($fd, $data, $connection)) {
+                return;
+            }
             // echo "receive#{$server->worker_id}: $fd >> " . bin2hex(substr($data, 0, 36)) . PHP_EOL;
             $packet = TransferFrame::make($data, $fd);
             if (false === $packet instanceof TransferFrame) {
@@ -232,8 +236,12 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onClose(Server $server, int $fd, int $reactorId): void
     {
-        $connection = Connection::make($server->getClientInfo($fd) ?: []);
-        $this->observer->onClose($fd, $connection);
-        unset($this->fdCache[$fd]);
+        try {
+            $connection = Connection::make($server->getClientInfo($fd) ?: []);
+            $this->observer->onClose($fd, $connection);
+            unset($this->fdCache[$fd]);
+        } catch (Throwable $throwable) {
+            Manager::logServerError($throwable);
+        }
     }
 }
