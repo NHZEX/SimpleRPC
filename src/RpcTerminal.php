@@ -5,11 +5,11 @@ namespace HZEX\SimpleRpc;
 
 use Exception;
 use HZEX\SimpleRpc\Co\TransferCo;
+use HZEX\SimpleRpc\Co\TransferMethodCo;
 use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Tunnel\TunnelInterface;
-use LengthException;
 use Throwable;
 
 class RpcTerminal
@@ -26,6 +26,11 @@ class RpcTerminal
      * @var TransferInterface[]
      */
     private $requestList = [];
+    /**
+     * 对象实例托管
+     * @var array
+     */
+    private $instance = [];
     /**
      * @var SnowFlake
      */
@@ -55,6 +60,14 @@ class RpcTerminal
     {
         $this->snowflake = $snowFlake;
         return $this;
+    }
+
+    /**
+     * @return SnowFlake
+     */
+    public function getSnowflake(): SnowFlake
+    {
+        return $this->snowflake;
     }
 
     /**
@@ -112,6 +125,7 @@ class RpcTerminal
      * @param TransferFrame $frame
      * @return bool
      * @throws RpcInvalidResponseException
+     * @throws RpcSendDataException
      */
     public function receive(TransferFrame $frame)
     {
@@ -122,6 +136,9 @@ class RpcTerminal
                 break;
             case TransferFrame::OPCODE_EXECUTE:
                 $this->handleRequest($frame);
+                break;
+            case TransferFrame::OPCODE_CLASS:
+                $this->handleClassRequest($frame);
                 break;
             case TransferFrame::OPCODE_RESULT:
             case TransferFrame::OPCODE_FAILURE:
@@ -199,24 +216,54 @@ class RpcTerminal
      * @return bool
      * @throws RpcSendDataException
      */
-    public function request(TransferInterface $transfer)
+    public function request(TransferInterface $transfer): bool
     {
         $methodName = $transfer->getMethodName();
-        if (($namelen = strlen($methodName)) > 255) {
-            throw new LengthException('方法名称长度超出支持范围 ' . $namelen);
-        }
         $serial = $this->snowflake->nextId();
         // 设置请求ID
         $transfer->setRequestId($serial);
         // 关联执行类
         $this->addWaitRequest($serial, $transfer);
         // 组包
-        $pack = pack('CJ', $namelen, $serial);
+        $pack = pack('CJ', strlen($methodName), $serial);
         $pack = $pack . $methodName . $transfer->getArgvSerialize();
         // 发送包数据
         $frame = new TransferFrame($transfer->getFd());
         $frame->setOpcode($frame::OPCODE_EXECUTE);
         $frame->setBody($pack);
+        return $this->send($frame);
+    }
+
+    /**
+     * @param TransferMethodCo $transfer
+     * @return bool
+     * @throws RpcSendDataException
+     */
+    public function requestClass(TransferMethodCo $transfer): bool
+    {
+        // 生成请求ID
+        $serial = $this->snowflake->nextId();
+        // 设置请求ID
+        $transfer->setRequestId($serial);
+        // 关联执行类
+        $this->addWaitRequest($serial, $transfer);
+        // 组包
+        $pack = $transfer::pack($transfer);
+        // 发送包数据
+        $frame = new TransferFrame($transfer->getFd());
+        $frame->setOpcode($frame::OPCODE_CLASS);
+        $frame->setBody($pack);
+        return $this->send($frame);
+    }
+
+    /**
+     * 发送请求数据
+     * @param TransferFrame $frame
+     * @return bool
+     * @throws RpcSendDataException
+     */
+    public function send(TransferFrame $frame): bool
+    {
         if (false === $this->tunnel->send($frame)) {
             throw new RpcSendDataException();
         }
@@ -224,9 +271,10 @@ class RpcTerminal
     }
 
     /**
-     * 处理响应
+     * 处理请求
      * @param TransferFrame $frame
      * @return bool
+     * @throws RpcSendDataException
      */
     protected function handleRequest(TransferFrame $frame)
     {
@@ -248,7 +296,48 @@ class RpcTerminal
     }
 
     /**
-     * 处理请求
+     * 处理类请求
+     * @param TransferFrame $frame
+     * @return bool
+     * @throws RpcSendDataException
+     */
+    protected function handleClassRequest(TransferFrame $frame)
+    {
+        $content = $frame->getBody();
+
+        ['len' => $nlen, 'object' => $oid, 'id' => $rid] = unpack('Clen/Jobject/Jid', $content);
+        $name = substr($content, 17, $nlen);
+        $argv = substr($content, 17 + $nlen);
+        $argv = unserialize($argv);
+        [$class, $method] = explode('$', $name);
+        try {
+            // TODO 原型
+            switch ($method) {
+                case '__construct':
+                    $oid = $this->snowflake->nextId();
+                    $cp = $this->provider->getProvider($class);
+                    // new \ReflectionObject($cp);
+                    $this->instance[$frame->getFd()][$oid] = $cp(...$argv);
+                    $result = $oid;
+                    break;
+                case '__destruct':
+                    unset($this->instance[$frame->getFd()][$oid]);
+                    $result = true;
+                    break;
+                default:
+                    $result = $this->instance[$frame->getFd()][$oid]->$method(...$argv);
+            }
+        } catch (Exception $exception) {
+            // 记录错误信息
+            $this->respFailure($rid, $frame, $exception);
+            return false;
+        }
+        $this->respResult($rid, $frame, $result);
+        return true;
+    }
+
+    /**
+     * 处理结果
      * @param TransferFrame $frame
      * @param bool          $failure
      * @throws RpcInvalidResponseException
@@ -269,26 +358,28 @@ class RpcTerminal
     }
 
     /**
-     * 方法响应
+     * 发送成功响应
      * @param int           $requestId
      * @param TransferFrame $recFrame
      * @param mixed         $result
      * @return bool
+     * @throws RpcSendDataException
      */
     protected function respResult(int $requestId, TransferFrame $recFrame, $result)
     {
         $frame = new TransferFrame($recFrame->getFd(), $recFrame->getWorkerId());
         $frame->setOpcode($frame::OPCODE_RESULT);
         $frame->setBody(pack('J', $requestId) . serialize($result));
-        return $this->tunnel->send($frame);
+        return $this->send($frame);
     }
 
     /**
-     * 方法响应
+     * 发送失败响应
      * @param int           $requestId
      * @param TransferFrame $recFrame
      * @param Exception     $e
      * @return bool
+     * @throws RpcSendDataException
      */
     protected function respFailure(int $requestId, TransferFrame $recFrame, Exception $e)
     {
@@ -310,7 +401,7 @@ class RpcTerminal
         $frame = new TransferFrame($recFrame->getFd(), $recFrame->getWorkerId());
         $frame->setOpcode($frame::OPCODE_FAILURE);
         $frame->setBody(pack('J', $requestId) . serialize($e));
-        return $this->tunnel->send($frame);
+        return $this->send($frame);
     }
 
     /**

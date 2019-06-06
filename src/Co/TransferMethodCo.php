@@ -10,7 +10,12 @@ use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\TransferInterface;
 use LengthException;
 
-class TransferCo implements TransferInterface
+/**
+ * 调用远程类方法
+ * Class TransferMethodCo
+ * @package HZEX\SimpleRpc\Co
+ */
+class TransferMethodCo implements TransferInterface
 {
     /**
      * @var int
@@ -22,10 +27,15 @@ class TransferCo implements TransferInterface
      */
     private $rpc;
     /**
+     * 对象实例Id
+     * @var int
+     */
+    private $objectId = 0;
+    /**
      * 请求Id
      * @var int
      */
-    private $requestId;
+    private $requestId = 0;
     /**
      * 连接Id
      * @var int|null
@@ -72,6 +82,33 @@ class TransferCo implements TransferInterface
      */
     private $stopTime = 0;
 
+    /**
+     * @param TransferMethodCo $transfer
+     * @return string
+     */
+    public static function pack(TransferMethodCo $transfer): string
+    {
+        $pack = pack('CJJ', strlen($transfer->methodName), $transfer->objectId, $transfer->requestId);
+        $pack = $pack . $transfer->methodName . $transfer->getArgvSerialize();
+
+        return $pack;
+    }
+
+    public static function unpack(string $content)
+    {
+        // 1 + 8 + 8
+        ['len' => $nlen, 'object' => $oid, 'id' => $rid] = unpack('Clen/Jobject/Jid', $content);
+        $name = substr($content, 17, $nlen);
+        $argv = substr($content, 17 + $nlen);
+        $argv = unserialize($argv);
+    }
+
+    /**
+     * TransferMethodCo constructor.
+     * @param RpcTerminal $rpc
+     * @param string      $name
+     * @param array       $argv
+     */
     public function __construct(RpcTerminal $rpc, string $name, array $argv)
     {
         if (($namelen = strlen($name)) > 255) {
@@ -107,6 +144,14 @@ class TransferCo implements TransferInterface
     {
         $this->fd = $fd;
         return $this;
+    }
+
+    /**
+     * @param int $objectId
+     */
+    public function setObjectId(int $objectId): void
+    {
+        $this->objectId = $objectId;
     }
 
     /**

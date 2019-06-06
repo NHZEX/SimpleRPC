@@ -6,6 +6,7 @@ namespace HZEX\SimpleRpc;
 use Closure;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
 use InvalidArgumentException;
+use LengthException;
 use LogicException;
 use ReflectionException;
 use ReflectionFunction;
@@ -43,6 +44,9 @@ class Transfer implements TransferInterface
 
     public function __construct(RpcTerminal $rpc, string $name, array $argv)
     {
+        if (($namelen = strlen($name)) > 255) {
+            throw new LengthException('方法名称长度超出支持范围: ' . $namelen);
+        }
         $this->rpc = $rpc;
         $this->methodName = $name;
         $this->methodArgv = $argv;

@@ -23,6 +23,8 @@ class TransferFrame
     public const OPCODE_PONG = 0x05;
     /** @var int 操作码 LINK */
     public const OPCODE_LINK = 0x06;
+    /** @var int 操作码 调用类 */
+    public const OPCODE_CLASS = 0x07;
 
     /** @var int 标志 压缩 */
     public const FLAG_COMPRESSION = 0x01;

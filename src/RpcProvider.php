@@ -106,6 +106,16 @@ class RpcProvider
     }
 
     /**
+     * 获取绑定的提供商
+     * @param string $name
+     * @return string|null
+     */
+    public function getProvider(string $name): ?string
+    {
+        return $this->provider[$name] ?? null;
+    }
+
+    /**
      * 获取提供商实例
      * @param string $name 类名或者标识
      * @param array  $vars 变量
