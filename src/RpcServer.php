@@ -144,6 +144,7 @@ class RpcServer implements SwooleServerTcpInterface
 
         $server->tick(5000, function () use ($server) {
             echo "RPC_GC#{$server->worker_id}: {$this->terminal->gcTransfer()}/{$this->terminal->countTransfer()}\n";
+            echo "RPC_IH#{$server->worker_id}: {$this->terminal->countInstanceHosting()}\n";
         });
     }
 
@@ -236,9 +237,13 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onClose(Server $server, int $fd, int $reactorId): void
     {
+        if (false === $this->existFd($fd)) {
+            return;
+        }
         try {
             $connection = Connection::make($server->getClientInfo($fd) ?: []);
             $this->observer->onClose($fd, $connection);
+            $this->terminal->destroyInstanceHosting($fd);
             unset($this->fdCache[$fd]);
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);

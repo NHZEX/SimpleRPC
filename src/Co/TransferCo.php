@@ -10,6 +10,11 @@ use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\TransferInterface;
 use LengthException;
 
+/**
+ * 协程静态方法调用过程
+ * Class TransferCo
+ * @package HZEX\SimpleRpc\Co
+ */
 class TransferCo implements TransferInterface
 {
     /**

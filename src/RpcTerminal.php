@@ -32,6 +32,11 @@ class RpcTerminal
      */
     private $instance = [];
     /**
+     * 客户实例
+     * @var array
+     */
+    private $clientBind = [];
+    /**
      * @var SnowFlake
      */
     private $snowflake;
@@ -108,6 +113,29 @@ class RpcTerminal
     public function countTransfer()
     {
         return count($this->requestList);
+    }
+
+    /**
+     * 销毁实例托管
+     * @param int|null $fd
+     * @return bool
+     */
+    public function destroyInstanceHosting(?int $fd)
+    {
+        foreach (($this->clientBind[$fd] ?? []) as $bind => $time) {
+            unset($this->instance[$bind]);
+        }
+        unset($this->clientBind[$fd]);
+
+        return true;
+    }
+
+    /**
+     * @return int
+     */
+    public function countInstanceHosting()
+    {
+        return count($this->instance);
     }
 
     /**
@@ -309,23 +337,31 @@ class RpcTerminal
         $name = substr($content, 17, $nlen);
         $argv = substr($content, 17 + $nlen);
         $argv = unserialize($argv);
-        [$class, $method] = explode('$', $name);
+        [$name, $method] = explode('$', $name);
         try {
             // TODO 原型
             switch ($method) {
                 case '__construct':
                     $oid = $this->snowflake->nextId();
-                    $cp = $this->provider->getProvider($class);
-                    // new \ReflectionObject($cp);
-                    $this->instance[$frame->getFd()][$oid] = $cp(...$argv);
+                    $class = $this->provider->getProvider($name);
+                    // 创建实例
+                    $this->instance[$oid] = new $class(...$argv);
+                    // 绑定客户
+                    $this->clientBind[$frame->getFd()][$oid] = time();
                     $result = $oid;
                     break;
                 case '__destruct':
-                    unset($this->instance[$frame->getFd()][$oid]);
+                    // 销毁实例
+                    unset($this->instance[$oid]);
+                    // 销毁绑定
+                    unset($this->clientBind[$frame->getFd()][$oid]);
                     $result = true;
                     break;
                 default:
-                    $result = $this->instance[$frame->getFd()][$oid]->$method(...$argv);
+                    // 调用实例
+                    $result = $this->instance[$oid]->$method(...$argv);
+                    // 更新信息
+                    $this->clientBind[$frame->getFd()][$oid] = time();
             }
         } catch (Exception $exception) {
             // 记录错误信息

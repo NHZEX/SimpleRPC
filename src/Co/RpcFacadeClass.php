@@ -1,16 +1,19 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc;
+namespace HZEX\SimpleRpc\Co;
 
-use HZEX\SimpleRpc\Co\RpcClassCo;
+use HZEX\SimpleRpc\Exception\RpcExecuteException;
+use HZEX\SimpleRpc\Exception\RpcSendDataException;
+use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
 
 /**
- * Class RpcFacade2
+ * 远程类门面
+ * Class RpcFacadeClass
  * @package HZEX\SimpleRpc
  */
-abstract class RpcFacade2
+abstract class RpcFacadeClass
 {
     /**
      * @var RpcTerminal
@@ -36,8 +39,8 @@ abstract class RpcFacade2
      * @param int|null $fd
      * @param mixed    ...$argv
      * @return static
-     * @throws Exception\RpcExecuteException
-     * @throws Exception\RpcSendDataException
+     * @throws RpcExecuteException
+     * @throws RpcSendDataException
      */
     public static function new(?int $fd = null, ...$argv)
     {
@@ -51,8 +54,8 @@ abstract class RpcFacade2
      * @param RpcTerminal $rpc
      * @param int|null    $fd
      * @param array       $argv
-     * @throws Exception\RpcExecuteException
-     * @throws Exception\RpcSendDataException
+     * @throws RpcExecuteException
+     * @throws RpcSendDataException
      */
     public function __construct(RpcTerminal $rpc, ?int $fd, array $argv)
     {
@@ -64,23 +67,30 @@ abstract class RpcFacade2
 
     }
 
+    /**
+     * 获取类实例Id
+     * @return int
+     */
+    public function getObjectId(): int
+    {
+        return $this->remoteObject->getObjectId();
+    }
 
     /**
      * @param string $name
      * @param        $arguments
-     * @return Transfer
-     * @throws Exception\RpcExecuteException
-     * @throws Exception\RpcSendDataException
+     * @return mixed
+     * @throws RpcExecuteException
+     * @throws RpcSendDataException
      */
     public function __call(string $name, $arguments)
     {
-        $this->remoteObject->method('', []);
-        return $this->terminal->method($this->fd, "{$this->getFacadeClass()}.{$name}", ...$arguments);
+        return $this->remoteObject->method($name, $arguments);
     }
 
     /**
-     * @throws Exception\RpcExecuteException
-     * @throws Exception\RpcSendDataException
+     * @throws RpcExecuteException
+     * @throws RpcSendDataException
      */
     public function __destruct()
     {

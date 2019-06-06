@@ -8,6 +8,11 @@ use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
 
+/**
+ * 远程静态方法门面
+ * Class RpcFacadeCo
+ * @package HZEX\SimpleRpc\Co
+ */
 abstract class RpcFacadeCo
 {
     /**

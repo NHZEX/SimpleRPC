@@ -8,6 +8,11 @@ use HZEX\SimpleRpc\Exception\RpcExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 
+/**
+ * 远程类调用
+ * Class RpcClassCo
+ * @package HZEX\SimpleRpc\Co
+ */
 class RpcClassCo
 {
     /**
@@ -47,6 +52,15 @@ class RpcClassCo
         $this->rpc = $rpc;
         $this->fd = $fd;
         $this->className = $className;
+    }
+
+    /**
+     * 获取对象实例Id
+     * @return int
+     */
+    public function getObjectId(): int
+    {
+        return $this->objectId;
     }
 
     /**
@@ -92,8 +106,6 @@ class RpcClassCo
         $method = new TransferMethodCo($this->rpc, "{$this->className}\$__destruct", []);
         $method->setFd($this->fd);
         $method->setObjectId($this->objectId);
-        return $method->exec();
+        $method->exec();
     }
-
-
 }

@@ -11,7 +11,7 @@ use HZEX\SimpleRpc\TransferInterface;
 use LengthException;
 
 /**
- * 调用远程类方法
+ * 协程类方法调用过程
  * Class TransferMethodCo
  * @package HZEX\SimpleRpc\Co
  */
@@ -226,7 +226,7 @@ class TransferMethodCo implements TransferInterface
         // 计算停止时间
         $this->stopTime = $this->startTime + $this->timeout;
         // 发生执行请求
-        $this->rpc->request($this);
+        $this->rpc->requestClass($this);
 
         // 让出控制权
         Co::yield();
