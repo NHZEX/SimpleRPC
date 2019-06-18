@@ -96,6 +96,9 @@ class RpcServer implements SwooleServerTcpInterface
         Event::listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerInit']));
         Event::listen('swoole.onPipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
 
+        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
+        Container::getInstance()->instance(RpcServer::class, $this);
+
         return $this;
     }
 
@@ -138,9 +141,6 @@ class RpcServer implements SwooleServerTcpInterface
         }
         $this->inited = true;
         $this->terminal->setSnowFlake(new SnowFlake($workerId));
-
-        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
-        Container::getInstance()->instance(RpcServer::class, $this);
 
         $server->tick(5000, function () use ($server) {
             echo "RPC_GC#{$server->worker_id}: {$this->terminal->gcTransfer()}/{$this->terminal->countTransfer()}\n";

@@ -8,21 +8,19 @@
             "email": "auooru@outlook.com"
         }
     ],
-    "minimum-stability": "stable",
     "require": {
         "php": "~7.1",
-        "ext-zlib": "*",
-        "ext-sockets": "*"
+        "ext-sockets": "*",
+        "ext-swoole": "~4.3",
+        "ext-zlib": "*"
     },
     "require-dev": {
-        "nhzex/tp-swoole": "dev-master",
+        "nhzex/tp-swoole": "2.0.x-dev",
         "phpunit/phpunit": "^8.1",
         "swoole/ide-helper": "^4.3"
     },
     "suggest": {
-        "ext-swoole": "swoole support",
-        "topthink/think-container": "facade support",
-        "nhzex/tp-swoole": "server support"
+        "nhzex/tp-swoole": "must be installed v2.0"
     },
     "autoload": {
         "psr-4": {

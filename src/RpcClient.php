@@ -214,6 +214,7 @@ class RpcClient
      * @param Client $client
      * @param string $data
      * @throws Exception\RpcInvalidResponseException
+     * @throws Exception\RpcSendDataException
      * @throws RpcUnpackingException
      */
     protected function onReceive(Client $client, string $data)
