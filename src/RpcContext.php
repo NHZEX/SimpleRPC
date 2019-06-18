@@ -7,20 +7,19 @@ use Co;
 
 class RpcContext
 {
-    private static $context = [];
-
     public static function setFd(int $fd)
     {
-        self::$context[Co::getCid()]['fd'] = $fd;
+        Co::getContext()[__CLASS__]['fd'] = $fd;
     }
 
     public static function getFd(): ?int
     {
-        return self::$context[Co::getCid()]['fd'] ?? null;
+        return Co::getContext()[__CLASS__]['fd'] ?? null;
     }
 
     public static function destroy()
     {
-        unset(self::$context[Co::getCid()]);
+        // 协程上下文会随着协程完结自行销毁
+        // unset(Co::getContext()[__CLASS__]);
     }
 }
