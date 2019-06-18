@@ -10,6 +10,8 @@ class TransferFrame
 {
     /** @var int 包版本 0-255 */
     public const VERSION = 0x01;
+    /** @var int 工人ID 无效值 */
+    public const WORKER_ID_NULL = 0xFFFFFFFF;
 
     /** @var int 操作码 执行方法 */
     public const OPCODE_EXECUTE = 0x01;
@@ -52,7 +54,7 @@ class TransferFrame
     /** @var null|int */
     protected $fd = null;
     /** @var int */
-    protected $workerId = 0;
+    protected $workerId = self::WORKER_ID_NULL;
 
     private static $cache;
 
@@ -61,7 +63,7 @@ class TransferFrame
      * @param int|null $fd
      * @param int      $workerId
      */
-    public function __construct(?int $fd = null, $workerId = 0)
+    public function __construct(?int $fd = null, $workerId = self::WORKER_ID_NULL)
     {
         $this->fd = $fd;
         $this->workerId = $workerId;
@@ -137,7 +139,7 @@ class TransferFrame
      * @param int      $workerId
      * @return self
      */
-    public static function link(?int $fd = null, $workerId = 0): self
+    public static function link(?int $fd = null, $workerId = self::WORKER_ID_NULL): self
     {
         $ping = new self($fd, $workerId);
         $ping->opcode = self::OPCODE_LINK;

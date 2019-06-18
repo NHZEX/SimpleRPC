@@ -215,7 +215,9 @@ class RpcServer implements SwooleServerTcpInterface
                 throw new RpcUnpackingException('数据解包错误');
             }
 
-            if ($server->worker_id === $packet->getWorkerId()) {
+            if ($server->worker_id === $packet->getWorkerId()
+                || TransferFrame::WORKER_ID_NULL === $packet->getWorkerId()
+            ) {
                 // echo "receive#$server->worker_id\n";
                 RpcContext::setFd($fd);
                 $this->terminal->receive($packet);

@@ -73,11 +73,12 @@ class TransferFrameTest extends TestCase
         $frame->setFlags(TransferFrame::FLAG_COMPRESSION);
         $frame->setOpcode(2);
         $frame->setBody('abc');
-        $this->assertEquals('0000001401010200000000039600e84b4c4a0600', bin2hex($frame->packet()));
+        $this->assertEquals('00000014010102ffffffff039600e84b4c4a0600', bin2hex($frame->packet()));
 
-        $unframe = TransferFrame::make(hex2bin('0000001401010200000000039600e84b4c4a0600'));
+        $unframe = TransferFrame::make(hex2bin('00000014010102ffffffff039600e84b4c4a0600'));
         $this->assertEquals(1, $unframe->getFlags());
         $this->assertEquals(2, $unframe->getOpcode());
         $this->assertEquals('abc', $unframe->getBody());
+        $this->assertEquals(TransferFrame::WORKER_ID_NULL, $unframe->getWorkerId());
     }
 }
