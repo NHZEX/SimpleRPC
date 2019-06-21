@@ -78,4 +78,10 @@ class Connection
             $this->$key = $val;
         }
     }
+
+    public function __toString()
+    {
+        return "server: {$this->server_port}#{$this->reactor_id}#{$this->server_fd}
+        , remote: {$this->remote_ip}:{$this->remote_port}";
+    }
 }
