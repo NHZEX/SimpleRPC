@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Co;
 
+use Co;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
@@ -45,6 +46,12 @@ abstract class RpcFacadeClass
      * @var bool 实例自动重建
      */
     protected $instanceAutoReconstruction = false;
+
+    /**
+     * 当前等待构建协程
+     * @var int
+     */
+    private $currentWaitConstructCo = -1;
 
     /**
      * @var FacadeHandle
@@ -95,9 +102,14 @@ abstract class RpcFacadeClass
      */
     private function __constructInstance()
     {
-        // 如果类以实例则销毁
-        if ($this->remoteObject->isInstance()) {
-            $this->remoteObject->destroy();
+        if (-1 === $this->currentWaitConstructCo) {
+            $this->currentWaitConstructCo = Co::getCid();
+        } else {
+            // 等待类构建成功
+            while (-1 !== $this->currentWaitConstructCo) {
+                Co::sleep(0.05);
+            }
+            return;
         }
 
         // 构建前处理
@@ -116,8 +128,9 @@ abstract class RpcFacadeClass
             $this->facadeHandle->constructAfter($this);
         }
 
-        // 构建完成计数
+        // 构建计数
         $this->constructCount++;
+        $this->currentWaitConstructCo = -1;
     }
 
     /**
