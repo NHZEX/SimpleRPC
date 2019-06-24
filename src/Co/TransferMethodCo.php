@@ -96,11 +96,13 @@ class TransferMethodCo implements TransferInterface
 
     public static function unpack(string $content)
     {
-        // 1 + 8 + 8
         ['len' => $nlen, 'object' => $oid, 'id' => $rid] = unpack('Clen/Jobject/Jid', $content);
         $name = substr($content, 17, $nlen);
         $argv = substr($content, 17 + $nlen);
         $argv = unserialize($argv);
+        [$name, $method] = explode('$', $name);
+
+        return [$oid, $rid, $name, $method, $argv];
     }
 
     /**

@@ -331,13 +331,8 @@ class RpcTerminal
      */
     protected function handleClassRequest(TransferFrame $frame)
     {
-        $content = $frame->getBody();
+        [$oid, $rid, $name, $method, $argv] = TransferMethodCo::unpack($frame->getBody());
 
-        ['len' => $nlen, 'object' => $oid, 'id' => $rid] = unpack('Clen/Jobject/Jid', $content);
-        $name = substr($content, 17, $nlen);
-        $argv = substr($content, 17 + $nlen);
-        $argv = unserialize($argv);
-        [$name, $method] = explode('$', $name);
         try {
             // TODO 原型
             switch ($method) {
@@ -358,6 +353,9 @@ class RpcTerminal
                     $result = true;
                     break;
                 default:
+                    if (false === isset($this->instance[$oid])) {
+                        throw new RpcInvalidResponseException("invalid request: does not exist id {$name}#{$oid}");
+                    }
                     // 调用实例
                     $result = $this->instance[$oid]->$method(...$argv);
                     // 更新信息
