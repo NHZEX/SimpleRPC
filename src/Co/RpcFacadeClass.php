@@ -31,6 +31,27 @@ abstract class RpcFacadeClass
     private $remoteObject;
 
     /**
+     * @var array
+     */
+    private $constructArgv;
+
+    /**
+     * 实例构建计算
+     * @var int
+     */
+    private $constructCount = 0;
+
+    /**
+     * @var bool 实例自动重建
+     */
+    protected $instanceAutoReconstruction = false;
+
+    /**
+     * @var FacadeHandle
+     */
+    protected $facadeHandle;
+
+    /**
      * @return string
      */
     abstract protected function getFacadeClass(): string;
@@ -61,19 +82,60 @@ abstract class RpcFacadeClass
     {
         $this->terminal = $rpc;
         $this->fd = $fd;
+        $this->constructArgv = $argv;
 
         $this->remoteObject = new RpcClassCo($this->terminal, $this->fd, $this->getFacadeClass());
-        $this->remoteObject->instance($argv);
-
+        $this->__constructInstance();
     }
 
     /**
-     * 获取类实例Id
+     * 内部实例方法
+     * @throws RpcRemoteExecuteException
+     * @throws RpcSendDataException
+     */
+    private function __constructInstance()
+    {
+        // 如果类以实例则销毁
+        if ($this->remoteObject->isInstance()) {
+            $this->remoteObject->destroy();
+        }
+
+        // 构建前处理
+        if (is_object($this->facadeHandle) && $this->facadeHandle instanceof FacadeHandle) {
+            $result = $this->facadeHandle->constructBefore($this, $this->constructArgv);
+            if (null !== $result) {
+                $this->constructArgv = $result;
+            }
+        }
+
+        // 开始实例化
+        $this->remoteObject->instance($this->constructArgv);
+
+        // 构建后处理
+        if (is_object($this->facadeHandle) && $this->facadeHandle instanceof FacadeHandle) {
+            $this->facadeHandle->constructAfter($this);
+        }
+
+        // 构建完成计数
+        $this->constructCount++;
+    }
+
+    /**
+     * 类实例Id
      * @return int
      */
     public function getObjectId(): int
     {
         return $this->remoteObject->getObjectId();
+    }
+
+    /**
+     * 实例计数
+     * @return int
+     */
+    public function getConstructCount(): int
+    {
+        return $this->constructCount;
     }
 
     /**
@@ -85,7 +147,20 @@ abstract class RpcFacadeClass
      */
     public function __call(string $name, $arguments)
     {
-        return $this->remoteObject->method($name, $arguments);
+        try {
+            return $this->remoteObject->method($name, $arguments);
+        } catch (RpcRemoteExecuteException $e) {
+            if ($this->instanceAutoReconstruction && $e->getCode() === RPC_INVALID_RESPONSE_EXCEPTION) {
+                try {
+                    $this->__constructInstance();
+                    return $this->remoteObject->method($name, $arguments);
+                } catch (RpcRemoteExecuteException $e) {
+                    throw (new RpcRemoteExecuteException('[retry]' . $e->getMessage(), $e->getCode(), $e))
+                        ->setRemoteTrace($e->getRemoteTrace());
+                }
+            }
+            throw $e;
+        }
     }
 
     /**

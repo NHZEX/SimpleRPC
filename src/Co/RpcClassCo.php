@@ -38,7 +38,7 @@ class RpcClassCo
      * 远程对象ID
      * @var int
      */
-    private $objectId;
+    private $objectId = 0;
 
     /**
      * TransferClassCo constructor.
@@ -79,6 +79,15 @@ class RpcClassCo
     }
 
     /**
+     * 是否已经实例
+     * @return bool
+     */
+    public function isInstance()
+    {
+        return $this->objectId > 0;
+    }
+
+    /**
      * 调用远程方法
      * @param string $name
      * @param array  $argv
@@ -107,5 +116,6 @@ class RpcClassCo
         $method->setFd($this->fd);
         $method->setObjectId($this->objectId);
         $method->exec();
+        $this->objectId = 0;
     }
 }
