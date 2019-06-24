@@ -354,7 +354,8 @@ class RpcTerminal
                     break;
                 default:
                     if (false === isset($this->instance[$oid])) {
-                        throw new RpcInvalidResponseException("invalid request: does not exist id {$name}#{$oid}");
+                        $message = "invalid request: the instance does not exist {$name}#{$oid}";
+                        throw new RpcInvalidResponseException($message);
                     }
                     // 调用实例
                     $result = $this->instance[$oid]->$method(...$argv);

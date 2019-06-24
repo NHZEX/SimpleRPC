@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Co;
 
 use Co;
-use HZEX\SimpleRpc\Exception\RpcExecuteException;
+use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\TransferInterface;
@@ -218,7 +218,7 @@ class TransferMethodCo implements TransferInterface
     /**
      * 提交执行执行
      * @return mixed
-     * @throws RpcExecuteException
+     * @throws RpcRemoteExecuteException
      * @throws RpcSendDataException
      */
     public function exec()
@@ -235,7 +235,7 @@ class TransferMethodCo implements TransferInterface
 
         // 远程执行失败抛出异常
         if ($this->isFailure) {
-            throw (new RpcExecuteException($this->result['message'], $this->result['code']))
+            throw (new RpcRemoteExecuteException($this->result['message'], $this->result['code']))
                 ->setRemoteTrace($this->result['trace']);
         }
 

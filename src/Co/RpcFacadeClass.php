@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Co;
 
-use HZEX\SimpleRpc\Exception\RpcExecuteException;
+use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
@@ -39,7 +39,7 @@ abstract class RpcFacadeClass
      * @param int|null $fd
      * @param mixed    ...$argv
      * @return static
-     * @throws RpcExecuteException
+     * @throws RpcRemoteExecuteException
      * @throws RpcSendDataException
      */
     public static function new(?int $fd = null, ...$argv)
@@ -54,7 +54,7 @@ abstract class RpcFacadeClass
      * @param RpcTerminal $rpc
      * @param int|null    $fd
      * @param array       $argv
-     * @throws RpcExecuteException
+     * @throws RpcRemoteExecuteException
      * @throws RpcSendDataException
      */
     public function __construct(RpcTerminal $rpc, ?int $fd, array $argv)
@@ -80,7 +80,7 @@ abstract class RpcFacadeClass
      * @param string $name
      * @param        $arguments
      * @return mixed
-     * @throws RpcExecuteException
+     * @throws RpcRemoteExecuteException
      * @throws RpcSendDataException
      */
     public function __call(string $name, $arguments)
@@ -89,7 +89,7 @@ abstract class RpcFacadeClass
     }
 
     /**
-     * @throws RpcExecuteException
+     * @throws RpcRemoteExecuteException
      * @throws RpcSendDataException
      */
     public function __destruct()

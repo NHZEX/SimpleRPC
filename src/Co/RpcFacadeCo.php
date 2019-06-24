@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Co;
 
-use HZEX\SimpleRpc\Exception\RpcExecuteException;
+use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
@@ -44,7 +44,7 @@ abstract class RpcFacadeCo
      * @param string $name
      * @param        $arguments
      * @return mixed
-     * @throws RpcExecuteException
+     * @throws RpcRemoteExecuteException
      * @throws RpcSendDataException
      */
     public function __call(string $name, $arguments)
