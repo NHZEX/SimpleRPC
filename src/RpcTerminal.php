@@ -359,6 +359,10 @@ class RpcTerminal
                     }
                     // 调用实例
                     $result = $this->instance[$oid]->$method(...$argv);
+                    // 兼容链式调用
+                    if (is_object($result) && spl_object_hash($result) === spl_object_hash($this->instance[$oid])) {
+                        $result = "CHAIN:{$oid}:{$method}";
+                    }
                     // 更新信息
                     $this->clientBind[$frame->getFd()][$oid] = time();
             }

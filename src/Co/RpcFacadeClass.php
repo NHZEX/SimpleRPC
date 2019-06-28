@@ -161,12 +161,12 @@ abstract class RpcFacadeClass
     public function __call(string $name, $arguments)
     {
         try {
-            return $this->remoteObject->method($name, $arguments);
+            return $this->handleResult($name, $this->remoteObject->method($name, $arguments));
         } catch (RpcRemoteExecuteException $e) {
             if ($this->instanceAutoReconstruction && $e->getCode() === RPC_INVALID_RESPONSE_EXCEPTION) {
                 try {
                     $this->__constructInstance();
-                    return $this->remoteObject->method($name, $arguments);
+                    return $this->handleResult($name, $this->remoteObject->method($name, $arguments));
                 } catch (RpcRemoteExecuteException $e) {
                     throw (new RpcRemoteExecuteException('[retry]' . $e->getMessage(), $e->getCode(), $e))
                         ->setRemoteTrace($e->getRemoteTrace());
@@ -174,6 +174,14 @@ abstract class RpcFacadeClass
             }
             throw $e;
         }
+    }
+
+    private function handleResult($method, $result)
+    {
+        if (is_string($result) && $result === "CHAIN:{$this->getObjectId()}:{$method}") {
+            $result = $this;
+        }
+        return $result;
     }
 
     /**
