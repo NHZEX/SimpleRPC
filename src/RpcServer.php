@@ -31,6 +31,10 @@ class RpcServer implements SwooleServerTcpInterface
      */
     private $port = 9502;
     /**
+     * @var bool
+     */
+    private $debug = false;
+    /**
      * @var RpcHandleInterface
      */
     private $observer;
@@ -103,6 +107,14 @@ class RpcServer implements SwooleServerTcpInterface
     }
 
     /**
+     * @param bool $debug
+     */
+    public function setDebug(bool $debug): void
+    {
+        $this->debug = $debug;
+    }
+
+    /**
      * @return RpcTerminal
      */
     public function getTerminal(): RpcTerminal
@@ -143,8 +155,11 @@ class RpcServer implements SwooleServerTcpInterface
         $this->terminal->setSnowFlake(new SnowFlake($workerId));
 
         $server->tick(5000, function () use ($server) {
-            echo "RPC_GC#{$server->worker_id}: {$this->terminal->gcTransfer()}/{$this->terminal->countTransfer()}\n";
-            echo "RPC_IH#{$server->worker_id}: {$this->terminal->countInstanceHosting()}\n";
+            $terminal = $this->terminal;
+            if ($this->debug) {
+                echo "RPC_GC#{$server->worker_id}: {$terminal->gcTransfer()}/{$terminal->countTransfer()}\n";
+                echo "RPC_IH#{$server->worker_id}: {$terminal->countInstanceHosting()}\n";
+            }
         });
     }
 
