@@ -1,9 +1,11 @@
 <?php
+/** @noinspection PhpUnusedParameterInspection */
 declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
 use Closure;
+use Co;
 use HZEX\SimpleRpc\Exception\RpcUnpackingException;
 use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -13,9 +15,14 @@ use HZEX\TpSwoole\Facade\Event;
 use HZEX\TpSwoole\Manager;
 use HZEX\TpSwoole\Swoole\SwooleServerTcpInterface;
 use Swoole\Server;
+use Swoole\Timer;
 use think\Container;
 use Throwable;
 
+/**
+ * Class RpcServer
+ * @package HZEX\SimpleRpc
+ */
 class RpcServer implements SwooleServerTcpInterface
 {
     /**
@@ -97,8 +104,9 @@ class RpcServer implements SwooleServerTcpInterface
         $this->tunnel = new ServerTcp($this->server, $this->observer);
         $this->terminal = new RpcTerminal($this->tunnel, $provider);
 
-        Event::listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerInit']));
+        Event::listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerStart']));
         Event::listen('swoole.onPipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
+        Event::listen('swoole.onWorkerStop', Closure::fromCallable([$this, 'workerStop']));
 
         Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
         Container::getInstance()->instance(RpcServer::class, $this);
@@ -146,7 +154,7 @@ class RpcServer implements SwooleServerTcpInterface
      * @param Server $server
      * @param int    $workerId
      */
-    public function workerInit(Server $server, int $workerId)
+    public function workerStart(Server $server, int $workerId)
     {
         if ($this->server->taskworker) {
             return;
@@ -154,13 +162,30 @@ class RpcServer implements SwooleServerTcpInterface
         $this->inited = true;
         $this->terminal->setSnowFlake(new SnowFlake($workerId));
 
-        $server->tick(5000, function () use ($server) {
-            $terminal = $this->terminal;
-            if ($this->debug) {
+        if ($this->debug) {
+            Timer::tick(5000, function () use ($server) {
+                $terminal = $this->terminal;
                 echo "RPC_GC#{$server->worker_id}: {$terminal->gcTransfer()}/{$terminal->countTransfer()}\n";
                 echo "RPC_IH#{$server->worker_id}: {$terminal->countInstanceHosting()}\n";
-            }
-        });
+            });
+        } else {
+            go(function () {
+                while (true) {
+                    Co::sleep(5);
+                    $this->terminal->gcTransfer();
+                }
+            });
+        }
+    }
+
+    /**
+     * @param Server $server
+     */
+    public function workerStop(Server $server)
+    {
+        if ($server->taskworker) {
+            return;
+        }
     }
 
     /**
@@ -203,7 +228,6 @@ class RpcServer implements SwooleServerTcpInterface
             if ($message instanceof TransferFrame) {
                 RpcContext::setFd($message->getFd());
                 $this->terminal->receive($message);
-                RpcContext::destroy();
             }
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
