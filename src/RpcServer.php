@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Closure;
-use Co;
 use HZEX\SimpleRpc\Exception\RpcUnpackingException;
 use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -162,20 +161,15 @@ class RpcServer implements SwooleServerTcpInterface
         $this->inited = true;
         $this->terminal->setSnowFlake(new SnowFlake($workerId));
 
-        if ($this->debug) {
-            Timer::tick(5000, function () use ($server) {
-                $terminal = $this->terminal;
+        Timer::tick(5000, function () use ($server) {
+            $terminal = $this->terminal;
+            if ($this->debug) {
                 echo "RPC_GC#{$server->worker_id}: {$terminal->gcTransfer()}/{$terminal->countTransfer()}\n";
                 echo "RPC_IH#{$server->worker_id}: {$terminal->countInstanceHosting()}\n";
-            });
-        } else {
-            go(function () {
-                while (true) {
-                    Co::sleep(5);
-                    $this->terminal->gcTransfer();
-                }
-            });
-        }
+            } else {
+                $this->terminal->gcTransfer();
+            }
+        });
     }
 
     /**
