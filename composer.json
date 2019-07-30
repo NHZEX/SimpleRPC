@@ -17,7 +17,9 @@
     "require-dev": {
         "nhzex/tp-swoole": "2.0.x-dev",
         "phpunit/phpunit": "^8.1",
-        "swoole/ide-helper": "^4.3"
+        "swoft/swoole-ide-helper": "^4.4",
+        "topthink/framework": "6.0.x-dev#f0babbd6529a57d8043690d63aa9505ca8a2c60d",
+        "topthink/think-orm": "2.0.x-dev#d0649a61896ddd060e7a038b79b3481d8730ceff"
     },
     "suggest": {
         "nhzex/tp-swoole": "must be installed v2.0"
@@ -44,9 +46,5 @@
         "optimize-autoloader": true
     },
     "repositories": {
-        "packagist": {
-            "type": "composer",
-            "url": "https://packagist.laravel-china.org"
-        }
     }
 }
