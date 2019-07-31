@@ -27,4 +27,9 @@ interface TunnelInterface
      * @return bool
      */
     public function send(TransferFrame $frame): bool;
+
+    /**
+     * 停止发送
+     */
+    public function stopSend(): void;
 }

@@ -15,10 +15,18 @@ use Swoole\Client;
  */
 class ClientTcp2 implements TunnelInterface
 {
-    /** @var Client */
+    /**
+     * @var Client
+     */
     private $client;
-    /** @var ClientHandleInterface */
+    /**
+     * @var ClientHandleInterface
+     */
     private $handle;
+    /**
+     * @var bool
+     */
+    private $isStop = false;
 
     /**
      * TcpClient constructor.
@@ -62,6 +70,9 @@ class ClientTcp2 implements TunnelInterface
      */
     public function send(TransferFrame $frame): bool
     {
+        if ($this->isStop) {
+            return true;
+        }
         if (true === $this->handle->onSend($frame)) {
             return true;
         }
@@ -69,5 +80,13 @@ class ClientTcp2 implements TunnelInterface
         $data = $frame->packet();
         // echo "clientTcpSend: $frame\n";
         return $this->client->send($data) === strlen($data);
+    }
+
+    /**
+     * 停止发送数据
+     */
+    public function stopSend(): void
+    {
+        $this->isStop = true;
     }
 }

@@ -62,4 +62,11 @@ class VirtualTunnel implements TunnelInterface
         self::$tempData = $frame;
         return true;
     }
+
+    /**
+     * 停止发送
+     */
+    public function stopSend(): void
+    {
+    }
 }

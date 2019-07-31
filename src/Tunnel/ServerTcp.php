@@ -10,12 +10,22 @@ use Swoole\Server;
 
 class ServerTcp implements TunnelInterface
 {
-    /** @var Server */
+    /**
+     * @var Server
+     */
     private $server;
-    /** @var RpcTerminal */
+    /**
+     * @var RpcTerminal
+     */
     private $terminal;
-    /** @var RpcHandleInterface */
+    /**
+     * @var RpcHandleInterface
+     */
     private $handle;
+    /**
+     * @var bool
+     */
+    private $isStop = false;
 
     public function __construct(Server $server, RpcHandleInterface $handle)
     {
@@ -41,6 +51,9 @@ class ServerTcp implements TunnelInterface
      */
     public function send(TransferFrame $frame): bool
     {
+        if ($this->isStop) {
+            return true;
+        }
         if (true === $this->handle->onSend($frame->getFd(), $frame)) {
             return true;
         }
@@ -49,5 +62,13 @@ class ServerTcp implements TunnelInterface
         $data = $frame->packet();
         // echo "serverTcpSend >> $frame\n";
         return $this->server->send($frame->getFd(), $data);
+    }
+
+    /**
+     * 停止发送数据
+     */
+    public function stopSend(): void
+    {
+        $this->isStop = true;
     }
 }
