@@ -1,4 +1,5 @@
 <?php
+/** @noinspection PhpUnusedParameterInspection */
 declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
@@ -67,6 +68,7 @@ class RpcClient
     }
 
     /**
+     * 连接双向Rpc
      * @param RpcProvider $provider
      * @param string      $host
      * @param int         $port
@@ -99,6 +101,22 @@ class RpcClient
         $this->client->connect($this->host, $this->port);
 
         return $this;
+    }
+
+    /**
+     * 关闭 Rpc 连接
+     */
+    public function close()
+    {
+        $this->setReConnect(false);
+        if ($this->reConnectTime && Timer::exists($this->reConnectTime)) {
+            Timer::clear($this->reConnectTime);
+        }
+        if (!$this->isConnected()) {
+            return;
+        }
+        $this->stopKeep();
+        $this->client->close();
     }
 
     /**
