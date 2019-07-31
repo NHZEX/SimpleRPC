@@ -49,6 +49,14 @@ class RpcTerminal
     }
 
     /**
+     * @return TunnelInterface
+     */
+    public function getTunnel(): TunnelInterface
+    {
+        return $this->tunnel;
+    }
+
+    /**
      * @return RpcProvider
      */
     public function getProvider(): RpcProvider

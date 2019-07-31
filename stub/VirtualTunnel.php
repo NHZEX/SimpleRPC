@@ -64,9 +64,19 @@ class VirtualTunnel implements TunnelInterface
     }
 
     /**
-     * 停止发送
+     * 设置停止发送
+     * @return void
      */
-    public function stopSend(): void
+    public function stop(): void
     {
+    }
+
+    /**
+     * 是否停止发送
+     * @return bool
+     */
+    public function isStop(): bool
+    {
+        return false;
     }
 }

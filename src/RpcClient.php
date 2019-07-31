@@ -116,7 +116,7 @@ class RpcClient
             return;
         }
         $this->stopKeep();
-        $this->tunnel->stopSend();
+        $this->tunnel->stop();
         $this->client->close();
     }
 

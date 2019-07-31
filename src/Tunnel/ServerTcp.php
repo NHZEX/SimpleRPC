@@ -66,9 +66,19 @@ class ServerTcp implements TunnelInterface
 
     /**
      * 停止发送数据
+     * @return void
      */
-    public function stopSend(): void
+    public function stop(): void
     {
         $this->isStop = true;
+    }
+
+    /**
+     * 是否停止发送
+     * @return bool
+     */
+    public function isStop(): bool
+    {
+        return $this->isStop;
     }
 }

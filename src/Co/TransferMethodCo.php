@@ -223,6 +223,10 @@ class TransferMethodCo implements TransferInterface
      */
     public function exec()
     {
+        // 如果通道已经停止则不要再发送任何请求
+        if ($this->rpc->getTunnel()->isStop()) {
+            return null;
+        }
         // 记录启动时间
         $this->startTime = time();
         // 计算停止时间
