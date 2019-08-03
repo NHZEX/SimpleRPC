@@ -10,6 +10,7 @@ use HZEX\SimpleRpc\Observer\ClientHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Tunnel\ClientTcp2;
 use Swoole\Client;
+use Swoole\Coroutine;
 use Swoole\Timer;
 use think\Container;
 
@@ -232,11 +233,20 @@ class RpcClient
      * 收到数据回调
      * @param Client $client
      * @param string $data
+     */
+    protected function onReceive(Client $client, string $data)
+    {
+        Coroutine::create(Closure::fromCallable([$this, 'handleReceive']), [$client, $data]);
+    }
+
+    /**
+     * @param Client $client
+     * @param string $data
      * @throws Exception\RpcInvalidResponseException
      * @throws Exception\RpcSendDataException
      * @throws RpcUnpackingException
      */
-    protected function onReceive(Client $client, string $data)
+    protected function handleReceive(Client $client, string $data)
     {
         if ($this->observer->onReceive($data)) {
             return;
