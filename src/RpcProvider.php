@@ -8,7 +8,6 @@ use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
 use HZEX\SimpleRpc\Exception\RpcFunctionNotExistException;
 use ReflectionException;
 use ReflectionFunction;
-use ReflectionFunctionAbstract;
 use ReflectionMethod;
 
 class RpcProvider
@@ -116,7 +115,7 @@ class RpcProvider
     }
 
     /**
-     * 获取提供商实例
+     * 调用提供商
      * @param string $name 类名或者标识
      * @param array  $vars 变量
      * @return mixed
@@ -187,37 +186,17 @@ class RpcProvider
     /**
      * 调用方法
      * @param Closure $function
-     * @param array   $vars
+     * @param array   $argv
      * @return mixed
      * @throws RpcFunctionInvokeException
      */
-    public function invokeFunction(Closure $function, $vars)
+    public function invokeFunction(Closure $function, $argv)
     {
         try {
             $reflect = new ReflectionFunction($function);
-            $argv = $this->bindParams($reflect, $vars);
             return $reflect->invokeArgs($argv);
         } catch (ReflectionException $e) {
             throw new RpcFunctionInvokeException('function invoke failure', 0, $e);
         }
-    }
-
-    /**
-     * @param ReflectionFunctionAbstract  $reflect
-     * @param                             $vars
-     * @return array
-     */
-    protected function bindParams(ReflectionFunctionAbstract $reflect, $vars)
-    {
-        $argv = [];
-        if ($reflect->getNumberOfParameters()) {
-            $params = $reflect->getParameters();
-            if ($class = $params[0]->getClass()) {
-                if (RpcTerminal::class === $class->getName()) {
-                    $argv[] = $this->terminal;
-                }
-            }
-        }
-        return array_merge($argv, $vars);
     }
 }

@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Tests;
 
 use Exception;
-use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
+use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\SnowFlake;
@@ -21,7 +22,8 @@ class RpcCommTest extends TestCase
     }
 
     /**
-     * @throws RpcFunctionInvokeException
+     * @throws RpcInvalidResponseException
+     * @throws RpcSendDataException
      */
     public function testRpcExec()
     {
@@ -37,8 +39,7 @@ class RpcCommTest extends TestCase
         $provider->bind('testFail', function () {
             throw new Exception('test', 1234);
         });
-        $provider->bind('testInj', function (RpcTerminal $terminal) use (&$count) {
-            $this->assertInstanceOf(RpcTerminal::class, $terminal);
+        $provider->bind('testInj', function () use (&$count) {
             $count++;
             return 'success';
         });
@@ -66,9 +67,8 @@ class RpcCommTest extends TestCase
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
         $rpc->method(1, 'testInj')
-            ->then(function (RpcTerminal $terminal, Transfer $transfer, $result) use (&$count) {
+            ->then(function (Transfer $transfer, $result) use (&$count) {
                 $this->assertEquals('success', $result);
-                $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals('testInj', $transfer->getMethodName());
                 $count++;
             })

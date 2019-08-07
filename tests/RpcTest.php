@@ -58,45 +58,6 @@ class RpcTest extends TestCase
 
     /**
      * @throws RpcFunctionInvokeException
-     * @throws RpcFunctionNotExistException
-     */
-    public function testInvokeInjection()
-    {
-        $mockTransmit = new VirtualTunnel();
-        $provider = new RpcProvider();
-        $provider->bind('test', function (RpcTerminal $terminal, $test) {
-            $this->assertEquals(123, $test);
-            $this->assertInstanceOf(RpcTerminal::class, $terminal);
-            return 'success';
-        });
-
-        $rpc = new RpcTerminal($mockTransmit, $provider);
-        $provider = $rpc->getProvider();
-        $result = $provider->invoke('test', [123]);
-        $this->assertEquals('success', $result);
-    }
-
-    /**
-     * @throws RpcFunctionInvokeException
-     * @throws RpcFunctionNotExistException
-     */
-    public function testTransferInjection()
-    {
-        $mockTransmit = new VirtualTunnel();
-        $provider = new RpcProvider();
-        $provider->bind('test', function (RpcTerminal $terminal, $a, $b, $c) {
-            $this->assertEquals(6, $a + $b + $c);
-            $this->assertInstanceOf(RpcTerminal::class, $terminal);
-            return 'success';
-        });
-
-        $rpc = new RpcTerminal($mockTransmit, $provider);
-        $result = $rpc->getProvider()->invoke('test', [1, 2, 3]);
-        $this->assertEquals('success', $result);
-    }
-
-    /**
-     * @throws RpcFunctionInvokeException
      */
     public function testTransferInvoke()
     {
