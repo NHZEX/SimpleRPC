@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Exception;
-use HZEX\SimpleRpc\Co\TransferCo;
 use HZEX\SimpleRpc\Co\TransferMethodCo;
 use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
@@ -228,20 +227,6 @@ class RpcTerminal
     public function method(?int $fd, string $name, ...$argv)
     {
         $transfer = new Transfer($this, $name, $argv);
-        $transfer->setFd($fd);
-        return $transfer;
-    }
-
-    /**
-     * 实例远程方法请求
-     * @param int|null $fd
-     * @param string   $name
-     * @param mixed    ...$argv
-     * @return TransferCo
-     */
-    public function methodCo(?int $fd, string $name, ...$argv)
-    {
-        $transfer = new TransferCo($this, $name, $argv);
         $transfer->setFd($fd);
         return $transfer;
     }
