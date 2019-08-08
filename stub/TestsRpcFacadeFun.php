@@ -3,15 +3,15 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Stub;
 
-use HZEX\SimpleRpc\RpcFacade;
-use HZEX\SimpleRpc\Transfer;
+use HZEX\SimpleRpc\Transfer\Fun\RpcFacadeFun;
+use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
 
 /**
  * Class TestsRpcFacade
  * @package HZEX\SimpleRpc\Stub
- * @method Transfer runAutoUpdate(string $a, int $b, bool $c)
+ * @method TransferFun runAutoUpdate(string $a, int $b, bool $c)
  */
-class TestsRpcFacade extends RpcFacade
+class TestsRpcFacadeFun extends RpcFacadeFun
 {
     protected function getFacadeClass(): string
     {

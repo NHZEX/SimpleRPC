@@ -10,7 +10,7 @@ use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\Stub\Tests;
 use HZEX\SimpleRpc\Stub\VirtualTunnel;
-use HZEX\SimpleRpc\Transfer;
+use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
 use PHPUnit\Framework\TestCase;
 
 class RpcTest extends TestCase
@@ -67,12 +67,12 @@ class RpcTest extends TestCase
 
         $method = $rpc
             ->method(1, 'test')
-            ->then(function (RpcTerminal $terminal, Transfer $transfer, $result) {
+            ->then(function (RpcTerminal $terminal, TransferFun $transfer, $result) {
                 $this->assertEquals('test', $transfer->getMethodName());
                 $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals('success', $result);
             })
-            ->fail(function (RpcTerminal $terminal, Transfer $transfer, $code, $message, $trace) {
+            ->fail(function (RpcTerminal $terminal, TransferFun $transfer, $code, $message, $trace) {
                 $this->assertEquals('test', $transfer->getMethodName());
                 $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals([0, 'asd', '123'], [$code, $message, $trace]);
@@ -94,22 +94,22 @@ class RpcTest extends TestCase
         $middlewareCount = 2;
         $method = $rpc
             ->method(1, 'test')
-            ->middleware(function (Transfer $transfer, Closure $next) use (&$middlewareCount) {
+            ->middleware(function (TransferFun $transfer, Closure $next) use (&$middlewareCount) {
                 $this->assertEquals('success', $transfer->getResult());
 
                 $middlewareCount--;
                 return $next($transfer);
             })
-            ->middleware(function (Transfer $transfer, Closure $next) use (&$middlewareCount) {
+            ->middleware(function (TransferFun $transfer, Closure $next) use (&$middlewareCount) {
                 $middlewareCount--;
                 return $next($transfer);
             })
-            ->then(function (RpcTerminal $terminal, Transfer $transfer, $result) {
+            ->then(function (RpcTerminal $terminal, TransferFun $transfer, $result) {
                 $this->assertEquals('test', $transfer->getMethodName());
                 $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals('success', $result);
             })
-            ->fail(function (RpcTerminal $terminal, Transfer $transfer, $code, $message, $trace) {
+            ->fail(function (RpcTerminal $terminal, TransferFun $transfer, $code, $message, $trace) {
                 $this->assertEquals('test', $transfer->getMethodName());
                 $this->assertInstanceOf(RpcTerminal::class, $terminal);
                 $this->assertEquals([0, 'asd', '123'], [$code, $message, $trace]);

@@ -4,11 +4,12 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Exception;
-use HZEX\SimpleRpc\Co\TransferMethodCo;
 use HZEX\SimpleRpc\Contract\TransferInterface;
 use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
+use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
+use HZEX\SimpleRpc\Transfer\Instance\TransferClass;
 use HZEX\SimpleRpc\Tunnel\TunnelInterface;
 use Throwable;
 
@@ -223,11 +224,11 @@ class RpcTerminal
      * @param int|null $fd
      * @param string   $name
      * @param mixed    ...$argv
-     * @return Transfer
+     * @return TransferFun
      */
     public function method(?int $fd, string $name, ...$argv)
     {
-        $transfer = new Transfer($this, $name, $argv);
+        $transfer = new TransferFun($this, $name, $argv);
         $transfer->setFd($fd);
         return $transfer;
     }
@@ -257,11 +258,11 @@ class RpcTerminal
     }
 
     /**
-     * @param TransferMethodCo $transfer
+     * @param TransferClass $transfer
      * @return bool
      * @throws RpcSendDataException
      */
-    public function requestClass(TransferMethodCo $transfer): bool
+    public function requestClass(TransferClass $transfer): bool
     {
         // 生成请求ID
         $serial = $this->snowflake->nextId();
@@ -325,7 +326,7 @@ class RpcTerminal
      */
     protected function handleClassRequest(TransferFrame $frame)
     {
-        [$oid, $rid, $name, $method, $argv] = TransferMethodCo::unpack($frame->getBody());
+        [$oid, $rid, $name, $method, $argv] = TransferClass::unpack($frame->getBody());
 
         try {
             switch ($method) {

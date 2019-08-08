@@ -1,17 +1,26 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc;
+namespace HZEX\SimpleRpc\Transfer\Fun;
 
 use Closure;
 use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
+use HZEX\SimpleRpc\Exception\RpcSendDataException;
+use HZEX\SimpleRpc\Middleware;
+use HZEX\SimpleRpc\RpcTerminal;
+use HZEX\SimpleRpc\TransferAbstract;
 use InvalidArgumentException;
 use LengthException;
 use LogicException;
 use ReflectionException;
 use ReflectionFunction;
 
-class Transfer extends TransferAbstract
+/**
+ * 调用方法
+ * Class TransferFun
+ * @package HZEX\SimpleRpc\Transfer\Fun
+ */
+class TransferFun extends TransferAbstract
 {
     /** @var int 执行超时时长 */
     private $execTimeLimit = 600;
@@ -68,7 +77,7 @@ class Transfer extends TransferAbstract
     /**
      * 添加中间件
      * @param Closure $middleware
-     * @return Transfer
+     * @return TransferFun
      */
     public function middleware(Closure $middleware): self
     {
@@ -101,7 +110,7 @@ class Transfer extends TransferAbstract
     /**
      * 提交执行执行
      * @return bool
-     * @throws Exception\RpcSendDataException
+     * @throws RpcSendDataException
      */
     public function exec()
     {
@@ -149,7 +158,7 @@ class Transfer extends TransferAbstract
 
     protected function resolve()
     {
-        return function (Transfer $request) {
+        return function (TransferFun $request) {
             if (0 === count($this->middlewares)) {
                 return $request;
             }
@@ -162,7 +171,7 @@ class Transfer extends TransferAbstract
 
             $response = $middleware($request, $this->resolve());
 
-            if (!$response instanceof Transfer) {
+            if (!$response instanceof TransferFun) {
                 throw new LogicException('The middleware must return Transfer instance');
             }
 
@@ -208,7 +217,7 @@ class Transfer extends TransferAbstract
                 if (RpcTerminal::class === $class->getName()) {
                     $argv[] = $this->rpc;
                     $left++;
-                } elseif (Transfer::class === $class->getName()) {
+                } elseif (TransferFun::class === $class->getName()) {
                     $argv[] = $this;
                     $left++;
                 }

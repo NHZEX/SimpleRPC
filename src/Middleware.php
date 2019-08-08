@@ -9,9 +9,9 @@ interface Middleware
 {
     /**
      * 处理请求
-     * @param Transfer $transfer
+     * @param TransferAbstract $transfer
      * @param Closure  $next
      * @return mixed
      */
-    public function handle(Transfer $transfer, Closure $next);
+    public function handle(TransferAbstract $transfer, Closure $next);
 }

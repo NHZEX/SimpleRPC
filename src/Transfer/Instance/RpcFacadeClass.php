@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc\Co;
+namespace HZEX\SimpleRpc\Transfer\Instance;
 
 use Co;
 use HZEX\SimpleRpc\Contract\FacadeHandleInterface;
@@ -13,8 +13,9 @@ use think\Container;
 
 /**
  * 远程类门面
+ *
  * Class RpcFacadeClass
- * @package HZEX\SimpleRpc
+ * @package HZEX\SimpleRpc\Transfer\Instance
  */
 abstract class RpcFacadeClass implements FacadeInterface
 {
@@ -29,7 +30,7 @@ abstract class RpcFacadeClass implements FacadeInterface
     private $fd;
 
     /**
-     * @var RpcClassCo
+     * @var RpcClass
      */
     private $remoteObject;
 
@@ -93,7 +94,7 @@ abstract class RpcFacadeClass implements FacadeInterface
         $this->fd = $fd;
         $this->constructArgv = $argv;
 
-        $this->remoteObject = new RpcClassCo($this->terminal, $this->fd, $this->getFacadeClass());
+        $this->remoteObject = new RpcClass($this->terminal, $this->fd, $this->getFacadeClass());
         $this->__constructInstance();
     }
 

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc\Co;
+namespace HZEX\SimpleRpc\Transfer\Instance;
 
 use Co;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
@@ -11,11 +11,12 @@ use HZEX\SimpleRpc\TransferAbstract;
 use LengthException;
 
 /**
- * 协程类方法调用过程
- * Class TransferMethodCo
- * @package HZEX\SimpleRpc\Co
+ * 调用对象
+ *
+ * Class TransferClass
+ * @package HZEX\SimpleRpc\Transfer\Instance
  */
-class TransferMethodCo extends TransferAbstract
+class TransferClass extends TransferAbstract
 {
     /**
      * 对象实例Id
@@ -34,10 +35,10 @@ class TransferMethodCo extends TransferAbstract
     private $startTime = 0;
 
     /**
-     * @param TransferMethodCo $transfer
+     * @param TransferClass $transfer
      * @return string
      */
-    public static function pack(TransferMethodCo $transfer): string
+    public static function pack(TransferClass $transfer): string
     {
         $pack = pack('CJJ', strlen($transfer->methodName), $transfer->objectId, $transfer->requestId);
         $pack = $pack . $transfer->methodName . $transfer->getArgvSerialize();

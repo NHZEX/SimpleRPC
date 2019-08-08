@@ -1,12 +1,17 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc;
+namespace HZEX\SimpleRpc\Transfer\Fun;
 
 use HZEX\SimpleRpc\Contract\FacadeInterface;
+use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
 
-abstract class RpcFacade implements FacadeInterface
+/**
+ * Class RpcFacadeFun
+ * @package HZEX\SimpleRpc\Transfer\Fun
+ */
+abstract class RpcFacadeFun implements FacadeInterface
 {
     /**
      * @var RpcTerminal

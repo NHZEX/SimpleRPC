@@ -9,9 +9,9 @@ use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\SnowFlake;
-use HZEX\SimpleRpc\Stub\TestsRpcFacade;
+use HZEX\SimpleRpc\Stub\TestsRpcFacadeFun;
 use HZEX\SimpleRpc\Stub\VirtualTunnel;
-use HZEX\SimpleRpc\Transfer;
+use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
 use PHPUnit\Framework\TestCase;
 
 class RpcCommTest extends TestCase
@@ -67,7 +67,7 @@ class RpcCommTest extends TestCase
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
         $rpc->method(1, 'testInj')
-            ->then(function (Transfer $transfer, $result) use (&$count) {
+            ->then(function (TransferFun $transfer, $result) use (&$count) {
                 $this->assertEquals('success', $result);
                 $this->assertEquals('testInj', $transfer->getMethodName());
                 $count++;
@@ -88,7 +88,7 @@ class RpcCommTest extends TestCase
         $crpc = new RpcTerminal($mockTransmit, $provider);
         $crpc->setSnowFlake(new SnowFlake(1));
 
-        $f = new TestsRpcFacade($crpc, 1);
+        $f = new TestsRpcFacadeFun($crpc, 1);
         $f->runAutoUpdate('success', 122, true)
             ->then(function ($result) {
                 $this->assertEquals('122-success-true', $result);

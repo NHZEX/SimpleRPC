@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc\Co;
+namespace HZEX\SimpleRpc\Transfer\Instance;
 
 use Co;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
@@ -10,10 +10,11 @@ use HZEX\SimpleRpc\RpcTerminal;
 
 /**
  * 远程类调用
- * Class RpcClassCo
- * @package HZEX\SimpleRpc\Co
+ *
+ * Class RpcClass
+ * @package HZEX\SimpleRpc\Transfer\Instance
  */
-class RpcClassCo
+class RpcClass
 {
     /**
      * @var int
@@ -73,7 +74,7 @@ class RpcClassCo
     public function instance(array $argv): void
     {
         // 调用远程对象
-        $method = new TransferMethodCo($this->rpc, "{$this->className}\$__construct", $argv);
+        $method = new TransferClass($this->rpc, "{$this->className}\$__construct", $argv);
         $method->setFd($this->fd);
         $this->objectId = $method->exec();
     }
@@ -98,7 +99,7 @@ class RpcClassCo
     public function method(string $name, array $argv)
     {
         // 调用远程对象
-        $method = new TransferMethodCo($this->rpc, "{$this->className}\${$name}", $argv);
+        $method = new TransferClass($this->rpc, "{$this->className}\${$name}", $argv);
         $method->setFd($this->fd);
         $method->setObjectId($this->objectId);
         return $method->exec();
@@ -112,7 +113,7 @@ class RpcClassCo
     public function destroy(): void
     {
         // 调用远程对象
-        $method = new TransferMethodCo($this->rpc, "{$this->className}\$__destruct", []);
+        $method = new TransferClass($this->rpc, "{$this->className}\$__destruct", []);
         $method->setFd($this->fd);
         $method->setObjectId($this->objectId);
         $method->exec();
