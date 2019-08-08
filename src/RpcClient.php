@@ -236,7 +236,9 @@ class RpcClient
      */
     protected function onReceive(Client $client, string $data)
     {
-        Coroutine::create(Closure::fromCallable([$this, 'handleReceive']), [$client, $data]);
+        Coroutine::create(function () use ($client, $data) {
+            $this->handleReceive($client, $data);
+        });
     }
 
     /**
