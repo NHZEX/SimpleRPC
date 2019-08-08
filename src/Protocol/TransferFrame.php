@@ -44,19 +44,33 @@ class TransferFrame
     public const FLAG_RSV6 = 0x40;
     /** @var int 标志 预留 */
     public const FLAG_RSV7 = 0x80;
-
-    /** @var string */
+    /**
+     * @var string
+     */
     protected $body = '';
-    /** @var int */
+    /**
+     * @var int
+     */
     protected $opcode = 0;
-    /** @var int */
+    /**
+     * @var int
+     */
     protected $flags = 0;
-    /** @var null|int */
+    /**
+     * 创建帧的Fd
+     * @var null|int
+     */
     protected $fd = null;
-    /** @var int */
+    /**
+     * 处理当前帧的工人ID
+     * @var int
+     */
     protected $workerId = self::WORKER_ID_NULL;
-
-    private static $cache;
+    /**
+     * 常量缓存
+     * @var array
+     */
+    private static $constantsCache;
 
     /**
      * TransferFrame constructor.
@@ -71,9 +85,12 @@ class TransferFrame
         $this->analyze();
     }
 
+    /**
+     * 解析类常量并生成名字到值的查询缓存
+     */
     private function analyze()
     {
-        if (null !== self::$cache) {
+        if (null !== self::$constantsCache) {
             return;
         }
         try {
@@ -81,7 +98,7 @@ class TransferFrame
         } catch (ReflectionException $e) {
             return;
         }
-        self::$cache = [];
+        self::$constantsCache = [];
         foreach ($ref->getConstants() as $name => $value) {
             $pos = strpos($name, '_');
             if (false === $pos) {
@@ -90,11 +107,12 @@ class TransferFrame
                 $prefix = substr($name, 0, $pos);
                 $name = substr($name, $pos + 1);
             }
-            self::$cache[$prefix][$value] = $name;
+            self::$constantsCache[$prefix][$value] = $name;
         }
     }
 
     /**
+     * 把数据解析为通信帧
      * @param string|null $package
      * @param int|null    $fd
      * @return self|null
@@ -109,6 +127,8 @@ class TransferFrame
     }
 
     /**
+     * 生成ping帧数据 - 通信测试
+     *
      * @param int|null $fd
      * @param int      $workerId
      * @return self
@@ -122,6 +142,8 @@ class TransferFrame
     }
 
     /**
+     * 生成pong帧数据 - 通信测试
+     *
      * @param int|null $fd
      * @param int      $workerId
      * @return self
@@ -135,6 +157,9 @@ class TransferFrame
     }
 
     /**
+     * 生成link帧数据
+     * 连接建立成功时由服务器发送此帧
+     *
      * @param int|null $fd
      * @param int      $workerId
      * @return self
@@ -148,15 +173,16 @@ class TransferFrame
     }
 
     /**
+     * 获取当前帧类型
      * @return string
      */
     public function getOpcodeDesc()
     {
-        return self::$cache['OPCODE'][$this->opcode] ?? 'UNDEFINED';
+        return self::$constantsCache['OPCODE'][$this->opcode] ?? 'UNDEFINED';
     }
 
     /**
-     * 封包
+     * 把当前帧打包为数据包
      * @return string
      */
     public function packet(): string
@@ -186,7 +212,7 @@ class TransferFrame
     }
 
     /**
-     * 解包
+     * 解包数据并将内容应用到当前帧
      * @param string $data
      * @return TransferFrame
      */
@@ -227,6 +253,7 @@ class TransferFrame
     }
 
     /**
+     * 获取创建当前帧的Fd
      * @return int|null
      */
     public function getFd(): ?int
@@ -235,6 +262,7 @@ class TransferFrame
     }
 
     /**
+     * 获取将要处理当前帧的工人ID
      * @return int
      */
     public function getWorkerId(): int
@@ -243,6 +271,7 @@ class TransferFrame
     }
 
     /**
+     * 设置当前帧将要发送到的工人ID
      * @param int $workerId
      * @return $this
      */
@@ -261,6 +290,7 @@ class TransferFrame
     }
 
     /**
+     * 设置帧内容
      * @param string $body
      * @return $this
      */
@@ -271,6 +301,7 @@ class TransferFrame
     }
 
     /**
+     * 获取帧操作码
      * @return int
      */
     public function getOpcode(): int
@@ -279,6 +310,7 @@ class TransferFrame
     }
 
     /**
+     * 设置帧操作码
      * @param int $opcode
      * @return $this
      */
@@ -289,6 +321,7 @@ class TransferFrame
     }
 
     /**
+     * 获取帧功能
      * @return int
      */
     public function getFlags(): int
@@ -297,6 +330,7 @@ class TransferFrame
     }
 
     /**
+     * 设置帧功能
      * @param int $flags
      * @return $this
      */
@@ -307,6 +341,7 @@ class TransferFrame
     }
 
     /**
+     * 当前帧是否压缩
      * @return bool
      */
     public function isCompression(): bool
@@ -314,6 +349,10 @@ class TransferFrame
         return self::FLAG_COMPRESSION === ($this->flags & self::FLAG_COMPRESSION);
     }
 
+    /**
+     * 获取帧调试信息
+     * @return string
+     */
     public function __toString(): string
     {
         $fd = $this->fd ?: 'null';
@@ -322,6 +361,10 @@ class TransferFrame
         return $info;
     }
 
+    /**
+     * 输出帧调试信息
+     * @return array
+     */
     public function __debugInfo()
     {
         return [$this->__toString()];
