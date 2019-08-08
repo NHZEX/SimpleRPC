@@ -3,9 +3,10 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
+use HZEX\SimpleRpc\Contract\FacadeInterface;
 use think\Container;
 
-abstract class RpcFacade
+abstract class RpcFacade implements FacadeInterface
 {
     /**
      * @var RpcTerminal

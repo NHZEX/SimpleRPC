@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Co;
 
 use Co;
+use HZEX\SimpleRpc\Contract\FacadeHandleInterface;
+use HZEX\SimpleRpc\Contract\FacadeInterface;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
@@ -14,7 +16,7 @@ use think\Container;
  * Class RpcFacadeClass
  * @package HZEX\SimpleRpc
  */
-abstract class RpcFacadeClass
+abstract class RpcFacadeClass implements FacadeInterface
 {
     /**
      * @var RpcTerminal
@@ -54,7 +56,7 @@ abstract class RpcFacadeClass
     private $currentWaitConstructCo = -1;
 
     /**
-     * @var FacadeHandle
+     * @var FacadeHandleInterface
      */
     protected $facadeHandle;
 
@@ -113,7 +115,7 @@ abstract class RpcFacadeClass
         }
 
         // 构建前处理
-        if (is_object($this->facadeHandle) && $this->facadeHandle instanceof FacadeHandle) {
+        if (is_object($this->facadeHandle) && $this->facadeHandle instanceof FacadeHandleInterface) {
             $result = $this->facadeHandle->constructBefore($this, $this->constructArgv);
             if (null !== $result) {
                 $this->constructArgv = $result;
@@ -124,7 +126,7 @@ abstract class RpcFacadeClass
         $this->remoteObject->instance($this->constructArgv);
 
         // 构建后处理
-        if (is_object($this->facadeHandle) && $this->facadeHandle instanceof FacadeHandle) {
+        if (is_object($this->facadeHandle) && $this->facadeHandle instanceof FacadeHandleInterface) {
             $this->facadeHandle->constructAfter($this);
         }
 
