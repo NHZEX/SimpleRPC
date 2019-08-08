@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc;
+namespace HZEX\SimpleRpc\Contract;
+
+use HZEX\SimpleRpc\RpcTerminal;
 
 interface TransferInterface
 {
@@ -19,9 +21,9 @@ interface TransferInterface
 
     /**
      * @param int|null $fd
-     * @return self
+     * @return void
      */
-    public function setFd(?int $fd): TransferInterface;
+    public function setFd(?int $fd): void;
 
     /**
      * @return int
@@ -30,9 +32,9 @@ interface TransferInterface
 
     /**
      * @param int $requestId
-     * @return self
+     * @return void
      */
-    public function setRequestId(int $requestId): TransferInterface;
+    public function setRequestId(int $requestId): void;
 
     /**
      * 获取RPC实例

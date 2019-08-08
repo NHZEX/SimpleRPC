@@ -7,7 +7,7 @@ use Co;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
-use HZEX\SimpleRpc\TransferInterface;
+use HZEX\SimpleRpc\TransferAbstract;
 use LengthException;
 
 /**
@@ -15,57 +15,13 @@ use LengthException;
  * Class TransferMethodCo
  * @package HZEX\SimpleRpc\Co
  */
-class TransferMethodCo implements TransferInterface
+class TransferMethodCo extends TransferAbstract
 {
-    /**
-     * @var int
-     */
-    private $cid;
-    /**
-     * 绑定的Rpc终端
-     * @var RpcTerminal
-     */
-    private $rpc;
     /**
      * 对象实例Id
      * @var int
      */
     private $objectId = 0;
-    /**
-     * 请求Id
-     * @var int
-     */
-    private $requestId = 0;
-    /**
-     * 连接Id
-     * @var int|null
-     */
-    private $fd;
-    /**
-     * 方法名称
-     * @var string
-     */
-    private $methodName;
-    /**
-     * 执行参数
-     * @var array
-     */
-    private $methodArgv;
-    /**
-     * 是否失败响应
-     * @var bool
-     */
-    private $isFailure;
-    /**
-     * 原始响应内容
-     * @var string
-     */
-    private $resultRaw;
-    /**
-     * 响应内容
-     * @var mixed
-     */
-    private $result;
     /**
      * 超时限制
      * @var int
@@ -76,11 +32,6 @@ class TransferMethodCo implements TransferInterface
      * @var int
      */
     private $startTime = 0;
-    /**
-     * 方法启动时间
-     * @var int
-     */
-    private $stopTime = 0;
 
     /**
      * @param TransferMethodCo $transfer
@@ -123,96 +74,11 @@ class TransferMethodCo implements TransferInterface
     }
 
     /**
-     * @return int
-     */
-    public function getCid(): int
-    {
-        return $this->cid;
-    }
-
-    /**
-     * @return int|null
-     */
-    public function getFd(): ?int
-    {
-        return $this->fd;
-    }
-
-    /**
-     * @param int|null $fd
-     * @return self
-     */
-    public function setFd(?int $fd): TransferInterface
-    {
-        $this->fd = $fd;
-        return $this;
-    }
-
-    /**
      * @param int $objectId
      */
     public function setObjectId(int $objectId): void
     {
         $this->objectId = $objectId;
-    }
-
-    /**
-     * @return int
-     */
-    public function getRequestId(): int
-    {
-        return $this->requestId;
-    }
-
-    /**
-     * @param int $requestId
-     * @return self
-     */
-    public function setRequestId(int $requestId): TransferInterface
-    {
-        $this->requestId = $requestId;
-        return $this;
-    }
-
-    /**
-     * 获取RPC实例
-     * @return RpcTerminal
-     */
-    public function getRpcTerminal(): RpcTerminal
-    {
-        return $this->rpc;
-    }
-
-    /**
-     * @return string
-     */
-    public function getMethodName(): string
-    {
-        return $this->methodName;
-    }
-
-    /**
-     * @return array
-     */
-    public function getMethodArgv(): array
-    {
-        return $this->methodArgv;
-    }
-
-    /**
-     * @return string
-     */
-    public function getArgvSerialize(): string
-    {
-        return serialize($this->methodArgv);
-    }
-
-    /**
-     * @return int
-     */
-    public function getStopTime(): int
-    {
-        return $this->stopTime;
     }
 
     /**

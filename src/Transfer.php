@@ -11,24 +11,12 @@ use LogicException;
 use ReflectionException;
 use ReflectionFunction;
 
-class Transfer implements TransferInterface
+class Transfer extends TransferAbstract
 {
     /** @var int 执行超时时长 */
     private $execTimeLimit = 600;
-    /** @var RpcTerminal 绑定的Rpc终端 */
-    private $rpc;
-    /** @var int 请求Id */
-    private $requestId;
-    /** @var int|null 连接Id */
-    private $fd;
     /** @var int 方法创建时间 */
     private $createTime;
-    /** @var int 方法超时时间 */
-    private $stopTime;
-    /** @var string 方法名称 */
-    private $methodName;
-    /** @var array 执行参数 */
-    private $methodArgv;
     /** @var Middleware[] */
     private $middlewares = [];
     /** @var Closure[] 执行成功 */
@@ -37,10 +25,6 @@ class Transfer implements TransferInterface
     private $fails = [];
     /** @var bool 是否已经执行 */
     private $exec = false;
-    /** @var bool 是否失败响应 */
-    private $isFailure;
-    /** @var mixed 响应内容 */
-    private $result;
 
     public function __construct(RpcTerminal $rpc, string $name, array $argv)
     {
@@ -54,47 +38,6 @@ class Transfer implements TransferInterface
         $this->stopTime = $this->createTime + $this->execTimeLimit;
     }
 
-    public function getCid(): int
-    {
-        return -1;
-    }
-
-    /**
-     * @return int|null
-     */
-    public function getFd(): ?int
-    {
-        return $this->fd;
-    }
-
-    /**
-     * @param int|null $fd
-     * @return self
-     */
-    public function setFd(?int $fd): TransferInterface
-    {
-        $this->fd = $fd;
-        return $this;
-    }
-
-    /**
-     * @return int
-     */
-    public function getRequestId(): int
-    {
-        return $this->requestId;
-    }
-
-    /**
-     * @param int $requestId
-     * @return self
-     */
-    public function setRequestId(int $requestId): TransferInterface
-    {
-        $this->requestId = $requestId;
-        return $this;
-    }
-
     /**
      * 设置执行超时
      * @param int $time
@@ -104,39 +47,6 @@ class Transfer implements TransferInterface
     {
         $this->stopTime = $time;
         return $this;
-    }
-
-    /**
-     * 获取RPC实例
-     * @return RpcTerminal
-     */
-    public function getRpcTerminal(): RpcTerminal
-    {
-        return $this->rpc;
-    }
-
-    /**
-     * @return string
-     */
-    public function getMethodName(): string
-    {
-        return $this->methodName;
-    }
-
-    /**
-     * @return array
-     */
-    public function getMethodArgv(): array
-    {
-        return $this->methodArgv;
-    }
-
-    /**
-     * @return string
-     */
-    public function getArgvSerialize(): string
-    {
-        return serialize($this->methodArgv);
     }
 
     /**
@@ -153,14 +63,6 @@ class Transfer implements TransferInterface
     public function isFailure(): bool
     {
         return $this->isFailure;
-    }
-
-    /**
-     * @return int
-     */
-    public function getStopTime(): int
-    {
-        return $this->stopTime;
     }
 
     /**

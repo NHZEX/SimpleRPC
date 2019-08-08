@@ -5,6 +5,7 @@ namespace HZEX\SimpleRpc;
 
 use Exception;
 use HZEX\SimpleRpc\Co\TransferMethodCo;
+use HZEX\SimpleRpc\Contract\TransferInterface;
 use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -327,7 +328,6 @@ class RpcTerminal
         [$oid, $rid, $name, $method, $argv] = TransferMethodCo::unpack($frame->getBody());
 
         try {
-            // TODO 原型
             switch ($method) {
                 case '__construct':
                     $oid = $this->snowflake->nextId();
@@ -434,21 +434,5 @@ class RpcTerminal
         $frame->setOpcode($frame::OPCODE_FAILURE);
         $frame->setBody(pack('J', $requestId) . serialize($e));
         return $this->send($frame);
-    }
-
-    /**
-     * @param int $length
-     * @return string
-     */
-    protected function generateRandomString($length = 16)
-    {
-        static $characters = '0123456789abcdefghijklmnopqrstuvwxyz';
-        static $charactersLength = 36 - 1;
-
-        $randomString = '';
-        for ($i = 0; $i < $length; $i++) {
-            $randomString .= $characters[mt_rand(0, $charactersLength)];
-        }
-        return $randomString;
     }
 }
