@@ -12,7 +12,9 @@
         "php": "~7.1",
         "ext-sockets": "*",
         "ext-swoole": "~4.3",
-        "ext-zlib": "*"
+        "ext-zlib": "*",
+        "psr/container": "^1.0",
+        "psr/log": "^1.1"
     },
     "require-dev": {
         "nhzex/tp-swoole": "2.0.x-dev",
