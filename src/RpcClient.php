@@ -61,7 +61,7 @@ class RpcClient
      * 重连间隔
      * @var int
      */
-    private $reConnectInterval = 1;
+    private $reConnectInterval = 2;
     /**
      * @var int
      */
@@ -106,7 +106,9 @@ class RpcClient
 
         $this->tunnel = new ClientTcp($this->client, $this->observer);
         $this->terminal = new RpcTerminal($this->tunnel, $provider);
-        $this->init();
+        $this->terminal->setSnowFlake(new SnowFlake(1));
+        // TODO 移除与Tp的硬绑定
+        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
 
         $this->isConnected = true;
         $this->loop();
@@ -119,24 +121,31 @@ class RpcClient
     private function loop()
     {
         go(function () {
+            $context = ['ip' => $this->host, 'port' => $this->port];
             while ($this->isConnected || $this->reConnect) {
                 try {
                     // 连接服务端
                     $this->clientConnect($this->host, $this->port);
+                    $this->logger->info('rpc client connect: {host}:{port}', $context);
                     // 触发连接成功事件
                     go(Closure::fromCallable([$this, 'onConnect']));
                     // 查询接受事件
                     while (true) {
                         $result = $this->clientRecv();
+                        go(Closure::fromCallable([$this, 'handleReceive']), $result);
                         go(function () use ($result) {
                             $this->handleReceive($result);
                         });
                     }
-                } catch (RpcClientException $clientException) {
-                    dump("client error {$clientException->getCode()}: {$clientException->getMessage()}");
-                    if ($clientException->isDisconnect()) {
+                } catch (RpcClientException $ce) {
+                    if ($ce->getMessage() === 'Host is down [empty recv]') {
+                        $this->logger->info("rpc client disconnect: {host}:{port}", $context);
+                    } else {
+                        $this->logger->warning("rpc client error: {$ce->getCode()} {$ce->getMessage()}");
+                    }
+                    if ($ce->isDisconnect()) {
                         // 如果不是连接失败则触发连接关闭事件
-                        if (!$clientException instanceof RpcClientConnectException) {
+                        if (!$ce instanceof RpcClientConnectException) {
                             // 触发连接断开事件
                             go(Closure::fromCallable([$this, 'onClose']));
                         }
@@ -183,7 +192,7 @@ class RpcClient
         }
         if ('' === $data) {
             // 返回空字符串表示服务端主动关闭连接
-            throw new RpcClientRecvException('Host is down', 112);
+            throw new RpcClientRecvException('Host is down [empty recv]', 112);
         }
         return $data;
     }
@@ -194,22 +203,12 @@ class RpcClient
     public function close()
     {
         $this->stopKeep();
-        $this->setReConnect(false);
+        $this->reConnect = false;
         $this->isConnected = false;
-        if (!$this->isConnected()) {
-            return;
-        }
         $this->tunnel->stop();
-        $this->client->close();
-    }
-
-    /**
-     * 初始化
-     */
-    protected function init()
-    {
-        $this->terminal->setSnowFlake(new SnowFlake(1));
-        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
+        if ($this->isConnected()) {
+            $this->client->close();
+        }
     }
 
     /**
@@ -237,12 +236,6 @@ class RpcClient
     public function isConnected(): bool
     {
         return $this->client->isConnected();
-    }
-
-    public function setReConnect(bool $sw)
-    {
-        $this->reConnect = $sw;
-        return $this;
     }
 
     /**
@@ -304,30 +297,11 @@ class RpcClient
         $this->terminal->receive($packet);
     }
 
-    protected function isDisconnectErr()
-    {
-        // https://wiki.swoole.com/wiki/page/172.html
-        switch ($this->client->errCode) {
-            case 100: // ENETDOWN Network is down 网络瘫痪
-            case 101: // ENETUNREACH Network is unreachable 网络不可达
-            case 102: // ENETRESET Network dropped 网络连接丢失
-            case 103: // ECONNABORTED Software caused connection 软件导致连接中断
-            case 104: // ECONNRESET Connection reset by 连接被重置
-            case 110: // ETIMEDOUT Connection timed 连接超时
-            case 111: // ECONNREFUSED  Connection refused 拒绝连接
-            case 112: // EHOSTDOWN Host is down 主机已关闭
-            case 113: // EHOSTUNREACH No route to host 没有主机的路由
-                return true;
-        }
-        return false;
-    }
-
     /**
      * 连接关闭回调
      */
     protected function onClose()
     {
-        dump('连接被断开');
         $this->observer->onClose();
         $this->stopKeep();
     }
