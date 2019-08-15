@@ -121,12 +121,11 @@ class RpcClient
     private function loop()
     {
         go(function () {
-            $context = ['ip' => $this->host, 'port' => $this->port];
             while ($this->isConnected || $this->reConnect) {
                 try {
                     // 连接服务端
                     $this->clientConnect($this->host, $this->port);
-                    $this->logger->info('rpc client connect: {host}:{port}', $context);
+                    $this->logger->info("rpc client connect: {$this->host}:{$this->port}");
                     // 触发连接成功事件
                     go(Closure::fromCallable([$this, 'onConnect']));
                     // 查询接受事件
@@ -135,11 +134,8 @@ class RpcClient
                         go(Closure::fromCallable([$this, 'handleReceive']), $result);
                     }
                 } catch (RpcClientException $ce) {
-                    if ($ce->getMessage() === 'Host is down [empty recv]') {
-                        $this->logger->info("rpc client disconnect: {host}:{port}", $context);
-                    } else {
-                        $this->logger->warning("rpc client error: {$ce->getCode()} {$ce->getMessage()}");
-                    }
+                    $this->logger->warning("rpc client error: {$ce->getCode()} {$ce->getMessage()}");
+                    // 重连判断
                     if ($ce->isDisconnect()) {
                         // 如果不是连接失败则触发连接关闭事件
                         if (!$ce instanceof RpcClientConnectException) {
