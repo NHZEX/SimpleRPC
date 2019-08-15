@@ -10,6 +10,7 @@
     ],
     "require": {
         "php": "~7.1",
+        "ext-pcntl": "*",
         "ext-sockets": "*",
         "ext-swoole": "~4.3",
         "ext-zlib": "*",
@@ -20,6 +21,8 @@
         "nhzex/tp-swoole": "2.0.x-dev",
         "phpunit/phpunit": "^8.1",
         "swoft/swoole-ide-helper": "^4.4",
+        "symfony/process": "^4.3",
+        "symfony/var-dumper": "^4.3",
         "topthink/framework": "6.0.x-dev#f0babbd6529a57d8043690d63aa9505ca8a2c60d",
         "topthink/think-orm": "2.0.x-dev#d0649a61896ddd060e7a038b79b3481d8730ceff"
     },
