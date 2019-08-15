@@ -133,9 +133,6 @@ class RpcClient
                     while (true) {
                         $result = $this->clientRecv();
                         go(Closure::fromCallable([$this, 'handleReceive']), $result);
-                        go(function () use ($result) {
-                            $this->handleReceive($result);
-                        });
                     }
                 } catch (RpcClientException $ce) {
                     if ($ce->getMessage() === 'Host is down [empty recv]') {
