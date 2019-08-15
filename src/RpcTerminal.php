@@ -110,6 +110,7 @@ class RpcTerminal
                     ]), true);
                 }
             } catch (Throwable $e) {
+                // TODO 统一日志输出
                 echo (string) $e;
             }
         });

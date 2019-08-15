@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Transfer\Instance;
 
 use Co;
+use HZEX\SimpleRpc\Exception\RpcException;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
@@ -117,6 +118,7 @@ class TransferClass extends TransferAbstract
      * 设置响应参数
      * @param string $result
      * @param bool   $failure
+     * @throws RpcException
      */
     public function response(string $result, bool $failure)
     {
@@ -125,6 +127,13 @@ class TransferClass extends TransferAbstract
         $this->result = unserialize($this->resultRaw);
         $this->isFailure = $failure;
         // 恢复协程
-        Co::resume($this->cid);
+        if (Co::exists($this->cid)) {
+            Co::resume($this->cid);
+        } else {
+            throw new RpcException(
+                "无法处理响应#{$this->requestId}->{$this->objectId}, 协程#{$this->cid}不存在",
+                RPC_RESPONSE_CO_RESUME_EXCEPTION
+            );
+        }
     }
 }
