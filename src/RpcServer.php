@@ -24,10 +24,21 @@ use Throwable;
  */
 class RpcServer implements SwooleServerTcpInterface
 {
+    protected const PROTOCOL = [
+        'open_length_check' => true,  // 启用包长检测协议
+        'package_max_length' => 524288, // 包最大长度 512kib
+        'package_length_type' => 'N', // 无符号、网络字节序、4字节
+        'package_length_offset' => 0,
+        'package_body_offset' => 0,
+    ];
     /**
      * @var Server
      */
     private $server;
+    /**
+     * @var Server\Port
+     */
+    private $serverPort;
     /**
      * @var string
      */
@@ -49,10 +60,6 @@ class RpcServer implements SwooleServerTcpInterface
      */
     private $tunnel;
     /**
-     * @var Server\Port
-     */
-    private $serverPort;
-    /**
      * @var RpcTerminal
      */
     private $terminal;
@@ -67,12 +74,10 @@ class RpcServer implements SwooleServerTcpInterface
 
     /**
      * RpcServer constructor.
-     * @param Server             $server
      * @param RpcHandleInterface $observer
      */
-    public function __construct(Server $server, RpcHandleInterface $observer)
+    public function __construct(RpcHandleInterface $observer)
     {
-        $this->server = $server;
         $this->observer = $observer;
     }
 
@@ -80,37 +85,63 @@ class RpcServer implements SwooleServerTcpInterface
      * @param RpcProvider $provider
      * @param string      $host
      * @param int         $port
+     * @return void
+     */
+    public function start(RpcProvider $provider, string $host = '0.0.0.0', int $port = 9502)
+    {
+        $this->host = $host ?: $this->host;
+        $this->port = $port;
+
+        $this->server = new Server($host, $port, SWOOLE_SOCK_TCP);
+        $this->server->set(self::PROTOCOL);
+        $this->server->on('WorkerStart', Closure::fromCallable([$this, 'workerStart']));
+        $this->server->on('PipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
+        $this->server->on('WorkerStop', Closure::fromCallable([$this, 'workerStop']));
+        $this->server->on('Connect', Closure::fromCallable([$this, 'onConnect']));
+        $this->server->on('Receive', Closure::fromCallable([$this, 'onReceive']));
+        $this->server->on('Close', Closure::fromCallable([$this, 'onClose']));
+
+        $this->initRpcServer($provider);
+        $this->server->start();
+    }
+
+    /**
+     * @param Server      $server
+     * @param RpcProvider $provider
+     * @param string      $host
+     * @param int         $port
      * @return RpcServer
      */
-    public function listen(RpcProvider $provider, string $host = '0.0.0.0', int $port = 9502)
+    public function listen(Server $server, RpcProvider $provider, string $host = '0.0.0.0', int $port = 9502)
     {
+        $this->server = $server;
         $this->host = $host ?: $this->host;
         $this->port = $port;
         $this->serverPort = $this->server->addlistener($host, $port, SWOOLE_SOCK_TCP);
 
-        $this->serverPort->set([
-            'open_length_check' => true,  // 启用包长检测协议
-            'package_max_length' => 524288, // 包最大长度 512kib
-            'package_length_type' => 'N', // 无符号、网络字节序、4字节
-            'package_length_offset' => 0,
-            'package_body_offset' => 0,
-        ]);
-
-        $this->serverPort->on('Connect', Closure::fromCallable([$this, 'onConnect']));
-        $this->serverPort->on('Receive', Closure::fromCallable([$this, 'onReceive']));
-        $this->serverPort->on('Close', Closure::fromCallable([$this, 'onClose']));
-
-        $this->tunnel = new ServerTcp($this->server, $this->observer);
-        $this->terminal = new RpcTerminal($this->tunnel, $provider);
+        $this->serverPort->set(self::PROTOCOL);
 
         Event::listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerStart']));
         Event::listen('swoole.onPipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
         Event::listen('swoole.onWorkerStop', Closure::fromCallable([$this, 'workerStop']));
+        $this->serverPort->on('Connect', Closure::fromCallable([$this, 'onConnect']));
+        $this->serverPort->on('Receive', Closure::fromCallable([$this, 'onReceive']));
+        $this->serverPort->on('Close', Closure::fromCallable([$this, 'onClose']));
 
+        $this->initRpcServer($provider);
+        return $this;
+    }
+
+    /**
+     * @param RpcProvider $provider
+     */
+    protected function initRpcServer(RpcProvider $provider)
+    {
+        $this->tunnel = new ServerTcp($this->server, $this->observer);
+        $this->terminal = new RpcTerminal($this->tunnel, $provider);
+        // TODO 移除与Tp的硬绑定
         Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
         Container::getInstance()->instance(RpcServer::class, $this);
-
-        return $this;
     }
 
     /**
