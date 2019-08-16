@@ -11,7 +11,7 @@ use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\SnowFlake;
 use HZEX\SimpleRpc\Stub\TestsRpcFacadeFun;
 use HZEX\SimpleRpc\Stub\VirtualTunnel;
-use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
+use HZEX\SimpleRpc\Transfer\FunAsync\TransferFunAsync;
 use PHPUnit\Framework\TestCase;
 
 class RpcCommTest extends TestCase
@@ -47,7 +47,7 @@ class RpcCommTest extends TestCase
         $rpc = new RpcTerminal($mockTransmit, $provider);
         $rpc->setSnowFlake(new SnowFlake(1));
 
-        $rpc->method(1, 'testSuccess', 1, 2, 3)
+        $rpc->methodAsync(1, 'testSuccess', 1, 2, 3)
             ->then(function ($result) {
                 $this->assertEquals('success', $result);
             })
@@ -55,7 +55,7 @@ class RpcCommTest extends TestCase
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
-        $rpc->method(1, 'testFail')
+        $rpc->methodAsync(1, 'testFail')
             ->fail(function ($code, $message, $trace) use (&$count) {
                 $this->assertEquals(1234, $code);
                 $this->assertEquals('test', $message);
@@ -66,8 +66,8 @@ class RpcCommTest extends TestCase
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
         $this->assertTrue($rpc->receive($mockTransmit::getData()));
 
-        $rpc->method(1, 'testInj')
-            ->then(function (TransferFun $transfer, $result) use (&$count) {
+        $rpc->methodAsync(1, 'testInj')
+            ->then(function (TransferFunAsync $transfer, $result) use (&$count) {
                 $this->assertEquals('success', $result);
                 $this->assertEquals('testInj', $transfer->getMethodName());
                 $count++;

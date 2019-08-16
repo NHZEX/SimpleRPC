@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
-use co;
+use Co;
 use HZEX\SimpleRpc\Contract\TransferInterface;
 use HZEX\SimpleRpc\Exception\RpcException;
 use ReflectionException;

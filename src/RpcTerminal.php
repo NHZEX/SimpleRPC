@@ -9,6 +9,7 @@ use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
+use HZEX\SimpleRpc\Transfer\FunAsync\TransferFunAsync;
 use HZEX\SimpleRpc\Transfer\Instance\TransferClass;
 use HZEX\SimpleRpc\Tunnel\TunnelInterface;
 use Throwable;
@@ -225,9 +226,23 @@ class RpcTerminal
      * @param int|null $fd
      * @param string   $name
      * @param mixed    ...$argv
+     * @return TransferFunAsync
+     */
+    public function methodAsync(?int $fd, string $name, ...$argv)
+    {
+        $transfer = new TransferFunAsync($this, $name, $argv);
+        $transfer->setFd($fd);
+        return $transfer;
+    }
+
+    /**
+     * 实例远程方法请求
+     * @param int|null $fd
+     * @param string   $name
+     * @param mixed    ...$argv
      * @return TransferFun
      */
-    public function method(?int $fd, string $name, ...$argv)
+    public function methodCo(?int $fd, string $name, ...$argv)
     {
         $transfer = new TransferFun($this, $name, $argv);
         $transfer->setFd($fd);

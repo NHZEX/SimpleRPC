@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Stub;
 
-use HZEX\SimpleRpc\Transfer\Fun\RpcFacadeFun;
-use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
+use HZEX\SimpleRpc\Transfer\FunAsync\RpcFacadeFun;
+use HZEX\SimpleRpc\Transfer\FunAsync\TransferFunAsync;
 
 /**
  * Class TestsRpcFacade
  * @package HZEX\SimpleRpc\Stub
- * @method TransferFun runAutoUpdate(string $a, int $b, bool $c)
+ * @method TransferFunAsync runAutoUpdate(string $a, int $b, bool $c)
  */
 class TestsRpcFacadeFun extends RpcFacadeFun
 {

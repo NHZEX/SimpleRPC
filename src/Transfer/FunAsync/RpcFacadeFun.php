@@ -1,11 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace HZEX\SimpleRpc\Transfer\Fun;
+namespace HZEX\SimpleRpc\Transfer\FunAsync;
 
 use HZEX\SimpleRpc\Contract\FacadeInterface;
-use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
 
@@ -40,17 +38,9 @@ abstract class RpcFacadeFun implements FacadeInterface
 
     abstract protected function getFacadeClass(): string;
 
-    /**
-     * @param string $name
-     * @param        $arguments
-     * @return mixed
-     * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
-     */
+
     public function __call(string $name, $arguments)
     {
-        return $this->terminal
-            ->methodCo($this->fd, "{$this->getFacadeClass()}.{$name}", ...$arguments)
-            ->exec();
+        return $this->terminal->methodAsync($this->fd, "{$this->getFacadeClass()}.{$name}", ...$arguments);
     }
 }

@@ -80,13 +80,12 @@ class RpcClientTest extends TestCase
     }
 
     /**
-     * 测试Rpc方法调用
+     * 测试Rpc类调用
      * @throws RpcRemoteExecuteException
      * @throws RpcSendDataException
      */
-    public function testTransfer()
+    public function testTransferClass()
     {
-        startRpcServer();
         $opserver = new RpcClientOpserver();
         self::$rpcClient = new RpcClient($opserver, self::$logger);
         $provider = new RpcProvider();
@@ -98,8 +97,52 @@ class RpcClientTest extends TestCase
         } while (!$opserver->isConnect() && $maxWait--);
         $this->assertTrue($maxWait > 0);
 
-        $class = TestFacade::new(1);
-        $result = $class->add(1, 2);
-        $this->assertEquals(3, $result);
+        $testCount = 1000;
+
+        $count = $testCount;
+        $result = 0;
+        while ($count--) {
+            $class = TestFacade::new();
+            $result = $class->add(1, $result);
+        }
+        $this->assertEquals($testCount, $result);
+
+        $count = $testCount;
+        $result = 0;
+        $class = TestFacade::new();
+        while ($count--) {
+            $result = $class->add(1, $result);
+        }
+        $this->assertEquals($testCount, $result);
+    }
+
+    /**
+     * 测试Rpc类调用
+     * @throws RpcRemoteExecuteException
+     * @throws RpcSendDataException
+     */
+    public function testTransferFun()
+    {
+        $opserver = new RpcClientOpserver();
+        self::$rpcClient = new RpcClient($opserver, self::$logger);
+        $provider = new RpcProvider();
+        // 等待连接成功
+        self::$rpcClient->connect($provider, '127.0.0.1', 9981);
+        $maxWait = 600;
+        do {
+            Co::sleep(0.01);
+        } while (!$opserver->isConnect() && $maxWait--);
+        $this->assertTrue($maxWait > 0);
+
+        $testCount = 1000;
+
+        $count = $testCount;
+        $result = 0;
+        while ($count--) {
+            $result = self::$rpcClient->getTerminal()
+                ->methodCo(null, 'TestFun', 1, $result)
+                ->exec();
+        }
+        $this->assertEquals($testCount, $result);
     }
 }

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Tests\Unit;
 
+use Closure;
 use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\RpcProvider;
@@ -15,7 +16,18 @@ class RpcServer implements RpcHandleInterface
         $rpcServer = new \HZEX\SimpleRpc\RpcServer($this);
         $provider = new RpcProvider();
         $provider->bind('TestProvider', TestProvider::class);
+        $provider->bind('TestFun', Closure::fromCallable([$this, 'testFun']));
         $rpcServer->start($provider, '127.0.0.1', 9981);
+    }
+
+    /**
+     * @param int $a
+     * @param int $b
+     * @return int
+     */
+    public function testFun(int $a, int $b): int
+    {
+        return $a + $b;
     }
 
     /**
