@@ -127,11 +127,11 @@ class TransferClass extends TransferAbstract
         $this->result = unserialize($this->resultRaw);
         $this->isFailure = $failure;
         // 恢复协程
-        if (Co::exists($this->cid)) {
+        if (Co::exists($this->cid) && $this->isTargetResume()) {
             Co::resume($this->cid);
         } else {
             throw new RpcException(
-                "无法处理响应#{$this->requestId}->{$this->objectId}, 协程#{$this->cid}不存在",
+                "响应#{$this->requestId}($this->objectId)无法被调度, 协程#{$this->cid}不存在",
                 RPC_RESPONSE_CO_RESUME_EXCEPTION
             );
         }

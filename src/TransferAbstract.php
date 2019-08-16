@@ -3,7 +3,11 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
+use co;
 use HZEX\SimpleRpc\Contract\TransferInterface;
+use HZEX\SimpleRpc\Exception\RpcException;
+use ReflectionException;
+use ReflectionMethod;
 
 abstract class TransferAbstract implements TransferInterface
 {
@@ -144,5 +148,49 @@ abstract class TransferAbstract implements TransferInterface
     public function getStopTime(): int
     {
         return $this->stopTime;
+    }
+
+    /**
+     * 分析协程调度目标
+     * @param string $method
+     * @return mixed
+     * @throws RpcException
+     */
+    protected function analyzeDispatchInfo(string $method = 'exec')
+    {
+        static $dispatchInfos = [];
+        $key = static::class . '::' . $method;
+
+        if (!isset($dispatchInfos[$key])) {
+            try {
+                $ref = new ReflectionMethod($this, $method);
+            } catch (ReflectionException $e) {
+                throw new RpcException('Rpc调度初始化失败', RPC_TRANSFER_INIT_EXCEPTION, $e);
+            }
+            $dispatchInfos[$key]['target_file'] = $ref->getFileName();
+            $dispatchInfos[$key]['start_line'] = $ref->getStartLine();
+            $dispatchInfos[$key]['end_line'] = $ref->getEndLine();
+        }
+        return $dispatchInfos[$key];
+    }
+
+    /**
+     * 检测是否与目标调度一致
+     * @return bool
+     * @throws RpcException
+     */
+    public function isTargetResume()
+    {
+        $dispatchInfo = $this->analyzeDispatchInfo();
+
+        $trace = Co::getBackTrace($this->cid, DEBUG_BACKTRACE_IGNORE_ARGS, 1);
+        if (!$trace) {
+            return false;
+        }
+        $trace = array_shift($trace);
+
+        return $trace['file'] === $dispatchInfo['target_file']
+            && $trace['line'] >= $dispatchInfo['start_line']
+            && $trace['line'] <= $dispatchInfo['end_line'];
     }
 }
