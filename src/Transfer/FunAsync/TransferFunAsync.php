@@ -190,40 +190,9 @@ class TransferFunAsync extends TransferAbstract
     {
         try {
             $reflect = new ReflectionFunction($function);
-            $args = $this->bindParams($reflect, $vars);
-            return $reflect->invokeArgs($args);
+            return $reflect->invokeArgs($vars);
         } catch (ReflectionException $e) {
             throw new RpcFunctionInvokeException('function invoke failure', 0, $e);
         }
-    }
-
-    /**
-     * 绑定参数
-     * @param ReflectionFunction $reflect 反射
-     * @param array              $vars    参数
-     * @return array
-     */
-    protected function bindParams(ReflectionFunction $reflect, $vars = [])
-    {
-        if ($reflect->getNumberOfParameters() == 0) {
-            return [];
-        }
-        $left = 0;
-        $argv = [];
-        $params = $reflect->getParameters();
-        foreach ($params as $param) {
-            $class = $param->getClass();
-            if ($class && $param->getPosition() === $left) {
-                if (RpcTerminal::class === $class->getName()) {
-                    $argv[] = $this->rpc;
-                    $left++;
-                } elseif (TransferFunAsync::class === $class->getName()) {
-                    $argv[] = $this;
-                    $left++;
-                }
-            }
-        }
-        $argv = array_merge($argv, $vars);
-        return $argv;
     }
 }

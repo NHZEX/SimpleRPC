@@ -67,14 +67,10 @@ class RpcTest extends TestCase
 
         $method = $rpc
             ->methodAsync(1, 'test')
-            ->then(function (RpcTerminal $terminal, TransferFunAsync $transfer, $result) {
-                $this->assertEquals('test', $transfer->getMethodName());
-                $this->assertInstanceOf(RpcTerminal::class, $terminal);
+            ->then(function ($result) {
                 $this->assertEquals('success', $result);
             })
-            ->fail(function (RpcTerminal $terminal, TransferFunAsync $transfer, $code, $message, $trace) {
-                $this->assertEquals('test', $transfer->getMethodName());
-                $this->assertInstanceOf(RpcTerminal::class, $terminal);
+            ->fail(function ($code, $message, $trace) {
                 $this->assertEquals([0, 'asd', '123'], [$code, $message, $trace]);
             });
 
@@ -104,14 +100,10 @@ class RpcTest extends TestCase
                 $middlewareCount--;
                 return $next($transfer);
             })
-            ->then(function (RpcTerminal $terminal, TransferFunAsync $transfer, $result) {
-                $this->assertEquals('test', $transfer->getMethodName());
-                $this->assertInstanceOf(RpcTerminal::class, $terminal);
+            ->then(function ($result) {
                 $this->assertEquals('success', $result);
             })
-            ->fail(function (RpcTerminal $terminal, TransferFunAsync $transfer, $code, $message, $trace) {
-                $this->assertEquals('test', $transfer->getMethodName());
-                $this->assertInstanceOf(RpcTerminal::class, $terminal);
+            ->fail(function ($code, $message, $trace) {
                 $this->assertEquals([0, 'asd', '123'], [$code, $message, $trace]);
             });
 

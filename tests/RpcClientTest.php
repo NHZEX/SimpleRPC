@@ -24,26 +24,43 @@ class RpcClientTest extends TestCase
     /**
      * @var RpcClient
      */
-    private static $rpcClient;
-
+    private $rpcClient;
+    /**
+     * @var RpcClientOpserver
+     */
+    private $opserver;
 
     public static function setUpBeforeClass(): void
     {
-        startRpcServer();
         self::$logger = new Logger();
     }
 
     public static function tearDownAfterClass(): void
     {
-        self::$rpcClient->close();
-        self::$rpcClient = null;
         killRpcServer();
-        self::$logger->output();
     }
 
     public function setUp(): void
     {
         startRpcServer();
+
+        $this->opserver = new RpcClientOpserver();
+        $this->rpcClient = new RpcClient($this->opserver, self::$logger);
+        $provider = new RpcProvider();
+        // 等待连接成功
+        $this->rpcClient->connect($provider, '127.0.0.1', 9981);
+        $maxWait = 600;
+        do {
+            Co::sleep(0.01);
+        } while (!$this->opserver->isConnect() && $maxWait--);
+        $this->assertTrue($maxWait > 0);
+    }
+
+    public function tearDown(): void
+    {
+        $this->rpcClient->close();
+        $this->rpcClient = null;
+        self::$logger->output();
     }
 
     /**
@@ -51,32 +68,20 @@ class RpcClientTest extends TestCase
      */
     public function testLink()
     {
-        $opserver = new RpcClientOpserver();
-        self::$rpcClient = new RpcClient($opserver, self::$logger);
-        $provider = new RpcProvider();
-        // 等待连接成功
-        self::$rpcClient->connect($provider, '127.0.0.1', 9981);
-        $maxWait = 600;
-        do {
-            Co::sleep(0.01);
-        } while (!$opserver->isConnect() && $maxWait--);
-        $this->assertTrue($maxWait > 0);
         // 等待连接断开
         killRpcServer();
         $maxWait = 600;
         do {
             Co::sleep(0.01);
-        } while ($opserver->isConnect() && $maxWait--);
+        } while ($this->opserver->isConnect() && $maxWait--);
         $this->assertTrue($maxWait > 0);
         // 等待连接重连
         startRpcServer();
         $maxWait = 600;
         do {
             Co::sleep(0.01);
-        } while (!$opserver->isConnect() && $maxWait--);
+        } while (!$this->opserver->isConnect() && $maxWait--);
         $this->assertTrue($maxWait > 0);
-        // 关闭客户端
-        self::$rpcClient->close();
     }
 
     /**
@@ -86,17 +91,6 @@ class RpcClientTest extends TestCase
      */
     public function testTransferClass()
     {
-        $opserver = new RpcClientOpserver();
-        self::$rpcClient = new RpcClient($opserver, self::$logger);
-        $provider = new RpcProvider();
-        // 等待连接成功
-        self::$rpcClient->connect($provider, '127.0.0.1', 9981);
-        $maxWait = 600;
-        do {
-            Co::sleep(0.01);
-        } while (!$opserver->isConnect() && $maxWait--);
-        $this->assertTrue($maxWait > 0);
-
         $testCount = 1000;
 
         $count = $testCount;
@@ -123,23 +117,12 @@ class RpcClientTest extends TestCase
      */
     public function testTransferFun()
     {
-        $opserver = new RpcClientOpserver();
-        self::$rpcClient = new RpcClient($opserver, self::$logger);
-        $provider = new RpcProvider();
-        // 等待连接成功
-        self::$rpcClient->connect($provider, '127.0.0.1', 9981);
-        $maxWait = 600;
-        do {
-            Co::sleep(0.01);
-        } while (!$opserver->isConnect() && $maxWait--);
-        $this->assertTrue($maxWait > 0);
-
         $testCount = 1000;
 
         $count = $testCount;
         $result = 0;
         while ($count--) {
-            $result = self::$rpcClient->getTerminal()
+            $result = $this->rpcClient->getTerminal()
                 ->methodCo(null, 'TestFun', 1, $result)
                 ->exec();
         }

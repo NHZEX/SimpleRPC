@@ -6,21 +6,19 @@ use Swoole\ExitException;
 use Swoole\Runtime;
 
 Runtime::enableCoroutine(true);
-$exit_status = 0;
+$phpunitFile = __DIR__ . '/vendor/phpunit/phpunit/phpunit';
+$exit_status = 1;
 
 $scheduler = new Scheduler;
-$scheduler->add(function () use (&$exit_status) {
+$scheduler->add(function () use (&$exit_status, $phpunitFile) {
     try {
-        $file = __DIR__ . '/vendor/phpunit/phpunit/phpunit';
-        $codeContent = file_get_contents($file);
+        $codeContent = file_get_contents($phpunitFile);
         $codeContent = substr($codeContent, strpos($codeContent, '<?php'));
-        file_put_contents($file . '.copy', $codeContent);
-        require $file . '.copy';
+        file_put_contents($phpunitFile . '.copy.php', $codeContent);
+        require $phpunitFile . '.copy.php';
     } catch (ExitException $e) {
         $exit_status = $e->getStatus();
-        return;
     }
 });
 $scheduler->start();
-
 exit($exit_status);
