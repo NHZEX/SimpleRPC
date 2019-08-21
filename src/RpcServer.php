@@ -10,9 +10,8 @@ use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
-use HZEX\TpSwoole\Facade\Event;
+use HZEX\TpSwoole\Contract\Event\SwooleServerTcpInterface;
 use HZEX\TpSwoole\Manager;
-use HZEX\TpSwoole\Swoole\SwooleServerTcpInterface;
 use Swoole\Server;
 use Swoole\Timer;
 use think\Container;
@@ -106,24 +105,25 @@ class RpcServer implements SwooleServerTcpInterface
     }
 
     /**
-     * @param Server      $server
+     * @param Manager     $manager
      * @param RpcProvider $provider
      * @param string      $host
      * @param int         $port
      * @return RpcServer
      */
-    public function listen(Server $server, RpcProvider $provider, string $host = '0.0.0.0', int $port = 9502)
+    public function listen(Manager $manager, RpcProvider $provider, string $host = '0.0.0.0', int $port = 9502)
     {
-        $this->server = $server;
+        $this->server = $manager->getSwoole();
         $this->host = $host ?: $this->host;
         $this->port = $port;
         $this->serverPort = $this->server->addlistener($host, $port, SWOOLE_SOCK_TCP);
 
         $this->serverPort->set(self::PROTOCOL);
 
-        Event::listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerStart']));
-        Event::listen('swoole.onPipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
-        Event::listen('swoole.onWorkerStop', Closure::fromCallable([$this, 'workerStop']));
+        $event = $manager->getEvent();
+        $event->listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerStart']));
+        $event->listen('swoole.onPipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
+        $event->listen('swoole.onWorkerStop', Closure::fromCallable([$this, 'workerStop']));
         $this->serverPort->on('Connect', Closure::fromCallable([$this, 'onConnect']));
         $this->serverPort->on('Receive', Closure::fromCallable([$this, 'onReceive']));
         $this->serverPort->on('Close', Closure::fromCallable([$this, 'onClose']));
