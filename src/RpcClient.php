@@ -7,8 +7,10 @@ use Closure;
 use HZEX\SimpleRpc\Exception\RpcClientConnectException;
 use HZEX\SimpleRpc\Exception\RpcClientException;
 use HZEX\SimpleRpc\Exception\RpcClientRecvException;
+use HZEX\SimpleRpc\Exception\RpcException;
 use HZEX\SimpleRpc\Exception\RpcUnpackingException;
 use HZEX\SimpleRpc\Observer\ClientHandleInterface;
+use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Tunnel\ClientTcp;
 use Psr\Log\LoggerInterface;
@@ -66,6 +68,10 @@ class RpcClient
      * @var int
      */
     private $keepTimeId;
+    /**
+     * @var CryptoAes
+     */
+    private $crypto;
 
     /**
      * RpcClient constructor.
@@ -76,6 +82,8 @@ class RpcClient
     {
         $this->observer = $observer;
         $this->logger = $logger;
+
+        $this->crypto = new CryptoAes();
     }
 
     /**
@@ -262,11 +270,23 @@ class RpcClient
     protected function onConnect()
     {
         $this->startKeep();
+
+        /** @var Coroutine\Socket $socket */
+        $socket = $this->client->exportSocket();
+        ['address' => $address, 'port' => $port] = $socket->getsockname();
+        $cryptoAdd = "{$address}:{$port}";
+
+        TransferFrame::setEncryptHandle(function (string $data) use ($cryptoAdd) {
+            return  $this->crypto->encrypt($data, '123456789', $cryptoAdd);
+        });
+        TransferFrame::setDecryptHandle(function (string $data) use ($cryptoAdd) {
+            return $this->crypto->decrypt($data, '123456789', $cryptoAdd);
+        });
     }
 
     /**
      * @param string $data
-     * @throws Exception\RpcException
+     * @throws RpcException
      * @throws RpcUnpackingException
      */
     protected function handleReceive(string $data)

@@ -10,6 +10,7 @@
     ],
     "require": {
         "php": "~7.1",
+        "ext-openssl": "*",
         "ext-pcntl": "*",
         "ext-sockets": "*",
         "ext-swoole": "~4.3",

@@ -3,23 +3,38 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
-use Co;
+use Swoole\Coroutine;
 
 class RpcContext
 {
     public static function setFd(int $fd)
     {
-        Co::getContext()[__CLASS__]['fd'] = $fd;
+        Coroutine::getContext()[__CLASS__ . '_fd'] = $fd;
     }
 
     public static function getFd(): ?int
     {
-        return Co::getContext()[__CLASS__]['fd'] ?? null;
+        return Coroutine::getContext()[__CLASS__ . '_fd'] ?? null;
     }
 
-    public static function destroy()
+    public static function setSession(RpcSession $session)
     {
-        // 协程上下文会随着协程完结自行销毁
-        // unset(Co::getContext()[__CLASS__]);
+        Coroutine::getContext()[__CLASS__ . '_session'] = $session;
+    }
+
+    public static function getSession(): ?RpcSession
+    {
+        return Coroutine::getContext()[__CLASS__ . '_session'] ?? null;
+    }
+
+    public static function copyContext(int $cid)
+    {
+        $context = Coroutine::getContext($cid);
+        $target = Coroutine::getContext();
+        foreach ($context as $key => $value) {
+            if (0 === strpos($key, __CLASS__)) {
+                $target[$key] = $value;
+            }
+        }
     }
 }

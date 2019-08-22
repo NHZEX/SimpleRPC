@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Tests;
 
+use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use PHPUnit\Framework\TestCase;
 
@@ -57,8 +58,8 @@ class TransferFrameTest extends TestCase
     public function prcFrameProvider()
     {
         return [
-            [TransferFrame::OPCODE_EXECUTE, '123456', TransferFrame::FLAG_COMPRESSION | TransferFrame::FLAG_RSV1],
-            [TransferFrame::OPCODE_RESULT, '123456', TransferFrame::FLAG_RSV1 | TransferFrame::FLAG_RSV5],
+            [TransferFrame::OPCODE_EXECUTE, '123456', TransferFrame::FLAG_COMPRESSION | TransferFrame::FLAG_RSV2],
+            [TransferFrame::OPCODE_RESULT, '123456', TransferFrame::FLAG_RSV2 | TransferFrame::FLAG_RSV5],
             [TransferFrame::OPCODE_FAILURE, '123456', TransferFrame::FLAG_RSV5 | TransferFrame::FLAG_RSV7],
             [TransferFrame::OPCODE_EXECUTE, '123456', TransferFrame::FLAG_COMPRESSION],
         ];
@@ -80,5 +81,32 @@ class TransferFrameTest extends TestCase
         $this->assertEquals(2, $unframe->getOpcode());
         $this->assertEquals('abc', $unframe->getBody());
         $this->assertEquals(TransferFrame::WORKER_ID_NULL, $unframe->getWorkerId());
+    }
+
+    /**
+     * 固定内容加密测试
+     */
+    public function testCryptoFrame()
+    {
+        $crypto = new CryptoAes();
+        TransferFrame::setEncryptHandle(function ($data) use ($crypto) {
+            return $crypto->encrypt($data, '123456789', '123');
+        });
+        TransferFrame::setDecryptHandle(function ($data) use ($crypto) {
+            return $crypto->decrypt($data, '123456789', '123');
+        });
+
+        $body = '123456789';
+        $frame = new TransferFrame();
+        $frame->setFlags(TransferFrame::FLAG_COMPRESSION | TransferFrame::FLAG_CRYPTO);
+        $frame->setOpcode(TransferFrame::OPCODE_RESULT);
+        $frame->setBody($body);
+
+        $package = $frame->packet();
+        $frame2 = TransferFrame::make($package);
+        $this->assertEquals($body, $frame2->getBody());
+
+        TransferFrame::setEncryptHandle(null);
+        TransferFrame::setDecryptHandle(null);
     }
 }

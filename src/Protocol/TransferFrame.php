@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Protocol;
 
+use Closure;
 use ReflectionClass;
 use ReflectionException;
 
@@ -30,8 +31,8 @@ class TransferFrame
 
     /** @var int 标志 压缩 */
     public const FLAG_COMPRESSION = 0x01;
-    /** @var int 标志 预留 */
-    public const FLAG_RSV1 = 0x02;
+    /** @var int 标志 加密 */
+    public const FLAG_CRYPTO = 0x02;
     /** @var int 标志 预留 */
     public const FLAG_RSV2 = 0x04;
     /** @var int 标志 预留 */
@@ -71,6 +72,16 @@ class TransferFrame
      * @var array
      */
     private static $constantsCache;
+    /**
+     * 数据加密处理
+     * @var Closure
+     */
+    private static $bodyEncryptHandle;
+    /**
+     * 数据解密处理
+     * @var Closure
+     */
+    private static $bodyDecryptHandle;
 
     /**
      * TransferFrame constructor.
@@ -81,7 +92,7 @@ class TransferFrame
     {
         $this->fd = $fd;
         $this->workerId = $workerId;
-        $this->flags = self::FLAG_COMPRESSION;
+        $this->flags = self::FLAG_COMPRESSION | self::FLAG_CRYPTO;
         $this->analyze();
     }
 
@@ -109,6 +120,22 @@ class TransferFrame
             }
             self::$constantsCache[$prefix][$value] = $name;
         }
+    }
+
+    /**
+     * @param Closure $encryptHandle
+     */
+    public static function setEncryptHandle(?Closure $encryptHandle): void
+    {
+        self::$bodyEncryptHandle = $encryptHandle;
+    }
+
+    /**
+     * @param Closure $decryptHandle
+     */
+    public static function setDecryptHandle(?Closure $decryptHandle): void
+    {
+        self::$bodyDecryptHandle = $decryptHandle;
     }
 
     /**
@@ -192,6 +219,13 @@ class TransferFrame
         } else {
             $data = $this->body;
         }
+        if ($this->isCrypto() && is_callable(self::$bodyEncryptHandle)) {
+            $data = call_user_func(self::$bodyEncryptHandle, $data, $this);
+        } else {
+            // 移除加密标志位
+            $this->flags &= ~self::FLAG_CRYPTO;
+        }
+
         $hash = hash('adler32', $data);
         $length = strlen($data);
 
@@ -241,6 +275,13 @@ class TransferFrame
         $this->flags = $flags;
         $this->workerId = $worker;
 
+        // 解密
+        if ($this->isCrypto() && is_callable(self::$bodyEncryptHandle)) {
+            $data = call_user_func(self::$bodyDecryptHandle, $data, $this);
+        } else {
+            // 移除加密标志位
+            $this->flags &= ~self::FLAG_CRYPTO;
+        }
         // 解压Body
         if ($this->isCompression()) {
             $data = gzinflate($data);
@@ -347,6 +388,15 @@ class TransferFrame
     public function isCompression(): bool
     {
         return self::FLAG_COMPRESSION === ($this->flags & self::FLAG_COMPRESSION);
+    }
+
+    /**
+     * 当前帧是否加密
+     * @return bool
+     */
+    public function isCrypto(): bool
+    {
+        return self::FLAG_CRYPTO === ($this->flags & self::FLAG_CRYPTO);
     }
 
     /**

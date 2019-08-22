@@ -7,6 +7,7 @@ namespace HZEX\SimpleRpc;
 use Closure;
 use HZEX\SimpleRpc\Exception\RpcUnpackingException;
 use HZEX\SimpleRpc\Observer\RpcHandleInterface;
+use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
@@ -67,9 +68,13 @@ class RpcServer implements SwooleServerTcpInterface
      */
     private $inited = false;
     /**
-     * @var array
+     * @var RpcSession[]
      */
-    private $fdCache = [];
+    private $fdSession = [];
+    /**
+     * @var CryptoAes
+     */
+    private $crypto;
 
     /**
      * RpcServer constructor.
@@ -78,6 +83,7 @@ class RpcServer implements SwooleServerTcpInterface
     public function __construct(RpcHandleInterface $observer)
     {
         $this->observer = $observer;
+        $this->crypto = new CryptoAes();
     }
 
     /**
@@ -173,9 +179,9 @@ class RpcServer implements SwooleServerTcpInterface
      * @param int $fd
      * @return bool
      */
-    public function existFd(int $fd): bool
+    public function existSession(int $fd): bool
     {
-        return isset($this->fdCache[$fd]);
+        return isset($this->fdSession[$fd]);
     }
 
     /**
@@ -191,6 +197,17 @@ class RpcServer implements SwooleServerTcpInterface
         }
         $this->inited = true;
         $this->terminal->setSnowFlake(new SnowFlake($workerId));
+
+        TransferFrame::setEncryptHandle(function ($data) {
+            $session = RpcContext::getSession();
+            $conn = $session->getConnection();
+            return  $this->crypto->encrypt($data, '123456789', "{$conn->remote_ip}:{$conn->remote_port}");
+        });
+        TransferFrame::setDecryptHandle(function ($data) {
+            $session = RpcContext::getSession();
+            $conn = $session->getConnection();
+            return $this->crypto->decrypt($data, '123456789', "{$conn->remote_ip}:{$conn->remote_port}");
+        });
 
         Timer::tick(5000, function () use ($server) {
             $terminal = $this->terminal;
@@ -222,15 +239,18 @@ class RpcServer implements SwooleServerTcpInterface
     public function onConnect(Server $server, int $fd, int $reactorId): void
     {
         try {
-            // echo "connect#{$server->worker_id}: $fd\n";
-            $this->fdCache[$fd] = $server->worker_id;
+//            echo "connect#{$server->worker_id}: $fd\n";
 
             $connection = Connection::make($server->getClientInfo($fd) ?: []);
+            $this->fdSession[$fd] = $session = new RpcSession($server->worker_id, $connection);
 
             if (false === $this->observer->auth($fd, $connection)) {
                 $server->close($fd);
                 return;
             }
+
+            $session->initPassword();
+            RpcContext::setSession($session);
 
             // 连接建立
             $this->tunnel->send(TransferFrame::link($fd));
@@ -251,7 +271,8 @@ class RpcServer implements SwooleServerTcpInterface
         try {
             // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
             if ($message instanceof TransferFrame) {
-                RpcContext::setFd($message->getFd());
+                RpcContext::setFd($fd = $message->getFd());
+                RpcContext::setSession($this->fdSession[$fd]);
                 $this->terminal->receive($message);
             }
         } catch (Throwable $throwable) {
@@ -268,6 +289,9 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onReceive(Server $server, int $fd, int $reactorId, string $data): void
     {
+        // 建立请求上下文
+        RpcContext::setFd($fd);
+        RpcContext::setSession($this->fdSession[$fd]);
         try {
             $connection = Connection::make($server->getClientInfo($fd) ?: []);
             if ($this->observer->onReceive($fd, $data, $connection)) {
@@ -283,9 +307,7 @@ class RpcServer implements SwooleServerTcpInterface
                 || TransferFrame::WORKER_ID_NULL === $packet->getWorkerId()
             ) {
                 // echo "receive#$server->worker_id\n";
-                RpcContext::setFd($fd);
                 $this->terminal->receive($packet);
-                RpcContext::destroy();
             } else {
                 // echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
                 $server->sendMessage($packet, $packet->getWorkerId());
@@ -303,14 +325,14 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onClose(Server $server, int $fd, int $reactorId): void
     {
-        if (false === $this->existFd($fd)) {
+        if (false === $this->existSession($fd)) {
             return;
         }
         try {
             $connection = Connection::make($server->getClientInfo($fd) ?: []);
             $this->observer->onClose($fd, $connection);
             $this->terminal->destroyInstanceHosting($fd);
-            unset($this->fdCache[$fd]);
+            unset($this->fdSession[$fd]);
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
         }
