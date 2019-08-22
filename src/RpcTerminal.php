@@ -7,8 +7,6 @@ use Closure;
 use Exception;
 use HZEX\SimpleRpc\Contract\TransferInterface;
 use HZEX\SimpleRpc\Exception\RpcException;
-use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
 use HZEX\SimpleRpc\Transfer\FunAsync\TransferFunAsync;
@@ -277,7 +275,6 @@ class RpcTerminal
      * 请求一个远程方法
      * @param TransferInterface $transfer
      * @return bool
-     * @throws RpcSendDataException
      */
     public function request(TransferInterface $transfer): bool
     {
@@ -300,7 +297,6 @@ class RpcTerminal
     /**
      * @param TransferClass $transfer
      * @return bool
-     * @throws RpcSendDataException
      */
     public function requestClass(TransferClass $transfer): bool
     {
@@ -323,13 +319,10 @@ class RpcTerminal
      * 发送请求数据
      * @param TransferFrame $frame
      * @return bool
-     * @throws RpcSendDataException
      */
     public function send(TransferFrame $frame): bool
     {
-        if (false === $this->tunnel->send($frame)) {
-            throw new RpcSendDataException();
-        }
+        $this->tunnel->send($frame);
         return true;
     }
 
@@ -337,7 +330,6 @@ class RpcTerminal
      * 处理请求
      * @param TransferFrame $frame
      * @return bool
-     * @throws RpcSendDataException
      */
     protected function handleRequest(TransferFrame $frame)
     {
@@ -362,7 +354,6 @@ class RpcTerminal
      * 处理类请求
      * @param TransferFrame $frame
      * @return bool
-     * @throws RpcSendDataException
      */
     protected function handleClassRequest(TransferFrame $frame)
     {
@@ -388,8 +379,8 @@ class RpcTerminal
                     break;
                 default:
                     if (false === isset($this->instance[$oid])) {
-                        $message = "invalid request: the instance does not exist {$name}#{$oid}";
-                        throw new RpcInvalidResponseException($message);
+                        $message = "invalid request: the object instance does not exist {$name}#{$oid}";
+                        throw new RpcException($message, RPC_INVALID_RESPONSE_EXCEPTION);
                     }
                     // 调用实例
                     $result = $this->instance[$oid]->$method(...$argv);
@@ -413,7 +404,7 @@ class RpcTerminal
      * 处理结果
      * @param TransferFrame $frame
      * @param bool          $failure
-     * @throws RpcInvalidResponseException
+     * @throws RpcException
      */
     protected function handleResponse(TransferFrame $frame, bool $failure = false)
     {
@@ -422,7 +413,7 @@ class RpcTerminal
         $result = substr($body, 8);
 
         if (null === ($request = $this->getWaitRequest($id))) {
-            throw new RpcInvalidResponseException("invalid request: does not exist id #{$id}");
+            throw new RpcException("invalid request: does not exist id #{$id}", RPC_INVALID_RESPONSE_EXCEPTION);
         }
 
         // 请求响应处理
@@ -436,7 +427,6 @@ class RpcTerminal
      * @param TransferFrame $recFrame
      * @param mixed         $result
      * @return bool
-     * @throws RpcSendDataException
      */
     protected function respResult(int $requestId, TransferFrame $recFrame, $result)
     {
@@ -452,7 +442,6 @@ class RpcTerminal
      * @param TransferFrame $recFrame
      * @param Exception     $e
      * @return bool
-     * @throws RpcSendDataException
      */
     protected function respFailure(int $requestId, TransferFrame $recFrame, Exception $e)
     {

@@ -4,8 +4,7 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Tests;
 
 use Closure;
-use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
-use HZEX\SimpleRpc\Exception\RpcFunctionNotExistException;
+use HZEX\SimpleRpc\Exception\RpcProviderException;
 use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\Stub\Tests;
@@ -20,8 +19,7 @@ class RpcTest extends TestCase
      * @param string      $name
      * @param             $concrete
      * @param string|null $callName
-     * @throws RpcFunctionInvokeException
-     * @throws RpcFunctionNotExistException
+     * @throws RpcProviderException
      */
     public function testServerProvider(string $name, $concrete, ?string $callName = null)
     {
@@ -57,7 +55,7 @@ class RpcTest extends TestCase
     }
 
     /**
-     * @throws RpcFunctionInvokeException
+     * @throws RpcProviderException
      */
     public function testTransferInvoke()
     {
@@ -79,7 +77,7 @@ class RpcTest extends TestCase
     }
 
     /**
-     * @throws RpcFunctionInvokeException
+     * @throws RpcProviderException
      */
     public function testTransferMiddleware()
     {

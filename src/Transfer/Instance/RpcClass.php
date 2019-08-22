@@ -5,7 +5,6 @@ namespace HZEX\SimpleRpc\Transfer\Instance;
 
 use Co;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 
 /**
@@ -69,7 +68,6 @@ class RpcClass
      * @param array $argv
      * @return mixed
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function instance(array $argv): void
     {
@@ -94,7 +92,6 @@ class RpcClass
      * @param array  $argv
      * @return mixed
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function method(string $name, array $argv)
     {
@@ -108,7 +105,6 @@ class RpcClass
     /**
      * 销毁远程对象
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function destroy(): void
     {

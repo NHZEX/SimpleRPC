@@ -4,8 +4,7 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Closure;
-use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
-use HZEX\SimpleRpc\Exception\RpcFunctionNotExistException;
+use HZEX\SimpleRpc\Exception\RpcProviderException;
 use ReflectionException;
 use ReflectionFunction;
 use ReflectionMethod;
@@ -119,8 +118,7 @@ class RpcProvider
      * @param string $name 类名或者标识
      * @param array  $vars 变量
      * @return mixed
-     * @throws RpcFunctionInvokeException
-     * @throws RpcFunctionNotExistException
+     * @throws RpcProviderException
      */
     public function invoke(string $name, array $vars = [])
     {
@@ -154,7 +152,7 @@ class RpcProvider
             }
         }
 
-        throw new RpcFunctionNotExistException("invoke function {$name} not exist");
+        throw new RpcProviderException("invoke function {$name} not exist", RPC_FUNCTION_NOT_EXIST_EXCEPTION);
     }
 
     /**
@@ -163,14 +161,14 @@ class RpcProvider
      * @param string $method
      * @param array  $vars
      * @return mixed
-     * @throws RpcFunctionInvokeException
+     * @throws RpcProviderException
      */
     public function invokeClassMethod($class, string $method, array $vars)
     {
         try {
             $reflect = new ReflectionMethod($class, $method);
             if (false === $reflect->isPublic()) {
-                throw new RpcFunctionInvokeException('invoke protected function');
+                throw new RpcProviderException('invoke protected function', RPC_FUNCTION_INVOKE_EXCEPTION);
             }
             if ($reflect->isStatic()) {
                 $closure = $reflect->getClosure(null);
@@ -179,7 +177,7 @@ class RpcProvider
             }
             return $this->invokeFunction($closure, $vars);
         } catch (ReflectionException $e) {
-            throw new RpcFunctionInvokeException('function invoke failure', 0, $e);
+            throw new RpcProviderException('function invoke failure', RPC_FUNCTION_INVOKE_EXCEPTION, $e);
         }
     }
 
@@ -188,7 +186,7 @@ class RpcProvider
      * @param Closure $function
      * @param array   $argv
      * @return mixed
-     * @throws RpcFunctionInvokeException
+     * @throws RpcProviderException
      */
     public function invokeFunction(Closure $function, $argv)
     {
@@ -196,7 +194,7 @@ class RpcProvider
             $reflect = new ReflectionFunction($function);
             return $reflect->invokeArgs($argv);
         } catch (ReflectionException $e) {
-            throw new RpcFunctionInvokeException('function invoke failure', 0, $e);
+            throw new RpcProviderException('function invoke failure', RPC_FUNCTION_INVOKE_EXCEPTION, $e);
         }
     }
 }

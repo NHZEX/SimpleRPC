@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Tunnel;
 
+use HZEX\SimpleRpc\Exception\RpcException;
 use HZEX\SimpleRpc\Observer\ClientHandleInterface;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\RpcTerminal;
@@ -67,6 +68,7 @@ class ClientTcp implements TunnelInterface
      * 发送数据
      * @param TransferFrame $frame
      * @return bool
+     * @throws RpcException
      */
     public function send(TransferFrame $frame): bool
     {
@@ -79,8 +81,11 @@ class ClientTcp implements TunnelInterface
 
         $data = $frame->packet();
         // echo "clientTcpSend: $frame\n";
-        // TODO 获取错误原因 $client->errCode
-        return $this->client->send($data) === strlen($data);
+        if ($this->client->send($data) !== strlen($data)) {
+            $errMsg = "rpc send data error: {$this->client->errCode}#{$this->client->errMsg}";
+            throw new RpcException($errMsg, RPC_SEND_DATA_EXCEPTION);
+        }
+        return true;
     }
 
     /**

@@ -6,7 +6,6 @@ namespace HZEX\SimpleRpc\Transfer\Instance;
 use Co;
 use HZEX\SimpleRpc\Exception\RpcException;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\TransferAbstract;
 use LengthException;
@@ -77,7 +76,6 @@ class TransferClass extends TransferAbstract
      * 提交执行执行
      * @return mixed
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function exec()
     {

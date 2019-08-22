@@ -6,9 +6,8 @@ namespace HZEX\SimpleRpc\Tests;
 
 use Co;
 use Exception;
-use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
+use HZEX\SimpleRpc\Exception\RpcException;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcClient;
 use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\Tests\Unit\Logger;
@@ -102,7 +101,6 @@ class RpcClientTest extends TestCase
     /**
      * 测试Rpc类调用
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function testTransferClass()
     {
@@ -128,7 +126,6 @@ class RpcClientTest extends TestCase
     /**
      * 测试Rpc方法调用
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function testTransferFun()
     {
@@ -195,7 +192,8 @@ class RpcClientTest extends TestCase
      */
     public function testInvalidRequest()
     {
-        $this->expectException(RpcInvalidResponseException::class);
+        $this->expectException(RpcException::class);
+        $this->expectExceptionCode(RPC_INVALID_RESPONSE_EXCEPTION);
 
         $chan = new Co\Channel(1);
 

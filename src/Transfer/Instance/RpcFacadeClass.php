@@ -7,7 +7,6 @@ use Co;
 use HZEX\SimpleRpc\Contract\FacadeHandleInterface;
 use HZEX\SimpleRpc\Contract\FacadeInterface;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
 
@@ -71,7 +70,6 @@ abstract class RpcFacadeClass implements FacadeInterface
      * @param mixed    ...$argv
      * @return static
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public static function new(?int $fd = null, ...$argv)
     {
@@ -86,7 +84,6 @@ abstract class RpcFacadeClass implements FacadeInterface
      * @param int|null    $fd
      * @param array       $argv
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function __construct(RpcTerminal $rpc, ?int $fd, array $argv)
     {
@@ -101,7 +98,6 @@ abstract class RpcFacadeClass implements FacadeInterface
     /**
      * 内部实例方法
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     private function __constructInstance()
     {
@@ -159,7 +155,6 @@ abstract class RpcFacadeClass implements FacadeInterface
      * @param        $arguments
      * @return mixed
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function __call(string $name, $arguments)
     {
@@ -189,7 +184,6 @@ abstract class RpcFacadeClass implements FacadeInterface
 
     /**
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function __destruct()
     {

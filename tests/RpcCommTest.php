@@ -4,8 +4,7 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Tests;
 
 use Exception;
-use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
+use HZEX\SimpleRpc\Exception\RpcException;
 use HZEX\SimpleRpc\RpcProvider;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\SnowFlake;
@@ -21,8 +20,7 @@ class RpcCommTest extends TestCase
     }
 
     /**
-     * @throws RpcInvalidResponseException
-     * @throws RpcSendDataException
+     * @throws RpcException
      */
     public function testRpcExec()
     {

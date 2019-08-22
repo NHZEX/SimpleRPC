@@ -5,7 +5,6 @@ namespace HZEX\SimpleRpc\Transfer\Fun;
 
 use HZEX\SimpleRpc\Contract\FacadeInterface;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\RpcTerminal;
 use think\Container;
 
@@ -45,7 +44,6 @@ abstract class RpcFacadeFun implements FacadeInterface
      * @param        $arguments
      * @return mixed
      * @throws RpcRemoteExecuteException
-     * @throws RpcSendDataException
      */
     public function __call(string $name, $arguments)
     {

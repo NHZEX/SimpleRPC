@@ -4,16 +4,13 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Transfer\FunAsync;
 
 use Closure;
-use HZEX\SimpleRpc\Exception\RpcFunctionInvokeException;
-use HZEX\SimpleRpc\Exception\RpcSendDataException;
+use HZEX\SimpleRpc\Exception\RpcProviderException;
 use HZEX\SimpleRpc\Middleware;
 use HZEX\SimpleRpc\RpcTerminal;
 use HZEX\SimpleRpc\TransferAbstract;
 use InvalidArgumentException;
 use LengthException;
 use LogicException;
-use ReflectionException;
-use ReflectionFunction;
 
 /**
  * 调用方法
@@ -85,7 +82,6 @@ class TransferFunAsync extends TransferAbstract
     /**
      * 提交执行执行
      * @return bool
-     * @throws RpcSendDataException
      */
     public function exec()
     {
@@ -106,7 +102,7 @@ class TransferFunAsync extends TransferAbstract
      * 响应处理
      * @param string $result
      * @param bool   $failure
-     * @throws RpcFunctionInvokeException
+     * @throws RpcProviderException
      */
     public function response(string $result, bool $failure)
     {
@@ -120,16 +116,18 @@ class TransferFunAsync extends TransferAbstract
         if ($failure) {
             foreach ($this->fails as $closure) {
                 // [code => int, message => string, trace => string]
-                $this->invokeFunction(
+                $this->rpc->getProvider()->invokeFunction(
                     $closure,
-                    $this->result['code'],
-                    $this->result['message'],
-                    $this->result['trace']
+                    [
+                        $this->result['code'],
+                        $this->result['message'],
+                        $this->result['trace'],
+                    ]
                 );
             }
         } else {
             foreach ($this->thens as $closure) {
-                $this->invokeFunction($closure, $this->result);
+                $this->rpc->getProvider()->invokeFunction($closure, [$this->result]);
             }
         }
         $this->fails = [];
@@ -157,22 +155,5 @@ class TransferFunAsync extends TransferAbstract
 
             return $response;
         };
-    }
-
-    /**
-     * 调用方法
-     * @param Closure $function
-     * @param array   $vars
-     * @return mixed
-     * @throws RpcFunctionInvokeException
-     */
-    public function invokeFunction(Closure $function, ...$vars)
-    {
-        try {
-            $reflect = new ReflectionFunction($function);
-            return $reflect->invokeArgs($vars);
-        } catch (ReflectionException $e) {
-            throw new RpcFunctionInvokeException('function invoke failure', 0, $e);
-        }
     }
 }
