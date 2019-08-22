@@ -17,6 +17,7 @@ class RpcServer implements RpcHandleInterface
         $provider = new RpcProvider();
         $provider->bind('TestProvider', TestProvider::class);
         $provider->bind('TestFun', Closure::fromCallable([$this, 'testFun']));
+        $provider->bind('sleep', 'sleep');
         $rpcServer->start($provider, '127.0.0.1', 9981);
     }
 

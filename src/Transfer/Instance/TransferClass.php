@@ -24,16 +24,6 @@ class TransferClass extends TransferAbstract
      * @var int
      */
     private $objectId = 0;
-    /**
-     * 超时限制
-     * @var int
-     */
-    private $timeout = 60;
-    /**
-     * 方法启动时间
-     * @var int
-     */
-    private $startTime = 0;
 
     /**
      * @param TransferClass $transfer
@@ -96,10 +86,10 @@ class TransferClass extends TransferAbstract
             return null;
         }
         // 记录启动时间
-        $this->startTime = time();
+        $this->execTime = time();
         // 计算停止时间
-        $this->stopTime = $this->startTime + $this->timeout;
-        // 发生执行请求
+        $this->stopTime = $this->execTime + $this->timeout;
+        // 发送执行请求
         $this->rpc->requestClass($this);
 
         // 让出控制权

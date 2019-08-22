@@ -3,8 +3,10 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc;
 
+use Closure;
 use Exception;
 use HZEX\SimpleRpc\Contract\TransferInterface;
+use HZEX\SimpleRpc\Exception\RpcException;
 use HZEX\SimpleRpc\Exception\RpcInvalidResponseException;
 use HZEX\SimpleRpc\Exception\RpcSendDataException;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -42,6 +44,10 @@ class RpcTerminal
      * @var SnowFlake
      */
     private $snowflake;
+    /**
+     * @var Closure|null
+     */
+    private $errorHandle = null;
 
     public function __construct(TunnelInterface $tunnel, RpcProvider $provider)
     {
@@ -86,6 +92,16 @@ class RpcTerminal
     }
 
     /**
+     * @param Closure|null $errorHandle
+     * @return RpcTerminal
+     */
+    public function setErrorHandle(?Closure $errorHandle): self
+    {
+        $this->errorHandle = $errorHandle;
+        return $this;
+    }
+
+    /**
      * 清理超时方法
      * @return int
      */
@@ -105,8 +121,8 @@ class RpcTerminal
             try {
                 foreach ($gcWait as $transfer) {
                     $transfer->response(serialize([
-                        'code' => -1,
-                        'message' => 'rpc request processing timeout',
+                        'code' => RPC_RESPONSE_TIME_OUT,
+                        'message' => "rpc request processing timeout: {$transfer}",
                         'trace' => '',
                     ]), true);
                 }
@@ -163,26 +179,34 @@ class RpcTerminal
      * RPC包接收处理
      * @param TransferFrame $frame
      * @return bool
-     * @throws RpcInvalidResponseException
-     * @throws RpcSendDataException
+     * @throws RpcException
      */
     public function receive(TransferFrame $frame)
     {
-        // 判断包类型
-        switch ($frame->getOpcode()) {
-            case TransferFrame::OPCODE_PING:
-                $this->tunnel->send(TransferFrame::pong($frame->getFd()));
-                break;
-            case TransferFrame::OPCODE_EXECUTE:
-                $this->handleRequest($frame);
-                break;
-            case TransferFrame::OPCODE_CLASS:
-                $this->handleClassRequest($frame);
-                break;
-            case TransferFrame::OPCODE_RESULT:
-            case TransferFrame::OPCODE_FAILURE:
-                $this->handleResponse($frame, $frame->getOpcode() === TransferFrame::OPCODE_FAILURE);
-                break;
+        try {
+            // 判断包类型
+            switch ($frame->getOpcode()) {
+                case TransferFrame::OPCODE_PING:
+                    $this->tunnel->send(TransferFrame::pong($frame->getFd()));
+                    break;
+                case TransferFrame::OPCODE_EXECUTE:
+                    $this->handleRequest($frame);
+                    break;
+                case TransferFrame::OPCODE_CLASS:
+                    $this->handleClassRequest($frame);
+                    break;
+                case TransferFrame::OPCODE_RESULT:
+                case TransferFrame::OPCODE_FAILURE:
+                    $this->handleResponse($frame, $frame->getOpcode() === TransferFrame::OPCODE_FAILURE);
+                    break;
+            }
+        } catch (RpcException $exception) {
+            if (is_callable($this->errorHandle)) {
+                call_user_func($this->errorHandle, $exception);
+            } else {
+                throw $exception;
+            }
+            return false;
         }
 
         return true;

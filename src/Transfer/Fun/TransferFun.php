@@ -13,17 +13,6 @@ use LengthException;
 
 class TransferFun extends TransferAbstract
 {
-    /**
-     * 超时限制
-     * @var int
-     */
-    private $timeout = 60;
-    /**
-     * 方法启动时间
-     * @var int
-     */
-    private $startTime = 0;
-
     public function __construct(RpcTerminal $rpc, string $name, array $argv)
     {
         if (($namelen = strlen($name)) > 255) {
@@ -44,10 +33,10 @@ class TransferFun extends TransferAbstract
     public function exec()
     {
         // 记录启动时间
-        $this->startTime = time();
+        $this->execTime = time();
         // 计算停止时间
-        $this->stopTime = $this->startTime + $this->timeout;
-        // 发生执行请求
+        $this->stopTime = $this->execTime + $this->timeout;
+        // 发送执行请求
         $this->rpc->request($this);
 
         // 让出控制权

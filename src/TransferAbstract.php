@@ -57,6 +57,16 @@ abstract class TransferAbstract implements TransferInterface
      */
     protected $isFailure;
     /**
+     * 请求超时
+     * @var int
+     */
+    protected $timeout = 60;
+    /**
+     * 方法启动时间
+     * @var int
+     */
+    protected $execTime = 0;
+    /**
      * 方法停止时间
      * @var int
      */
@@ -143,6 +153,16 @@ abstract class TransferAbstract implements TransferInterface
     }
 
     /**
+     * @param int $timeout
+     * @return TransferAbstract
+     */
+    public function setTimeout(int $timeout): self
+    {
+        $this->timeout = $timeout;
+        return $this;
+    }
+
+    /**
      * @return int
      */
     public function getStopTime(): int
@@ -192,5 +212,10 @@ abstract class TransferAbstract implements TransferInterface
         return $trace['file'] === $dispatchInfo['target_file']
             && $trace['line'] >= $dispatchInfo['start_line']
             && $trace['line'] <= $dispatchInfo['end_line'];
+    }
+
+    public function __toString()
+    {
+        return "rpc transfer: {$this->methodName}#{$this->requestId}#{$this->cid}";
     }
 }

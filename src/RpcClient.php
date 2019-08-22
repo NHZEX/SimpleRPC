@@ -266,8 +266,7 @@ class RpcClient
 
     /**
      * @param string $data
-     * @throws Exception\RpcInvalidResponseException
-     * @throws Exception\RpcSendDataException
+     * @throws Exception\RpcException
      * @throws RpcUnpackingException
      */
     protected function handleReceive(string $data)

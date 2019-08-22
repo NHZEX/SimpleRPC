@@ -3,7 +3,7 @@
 namespace TestBootstart;
 
 use ErrorException;
-use Symfony\Component\Process\Process;
+use HZEX\SimpleRpc\Tests\Unit\Process;
 use Throwable;
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -12,6 +12,7 @@ error_reporting(E_ALL);
 set_error_handler('\TestBootstart\handleError');
 set_exception_handler('\TestBootstart\handleException');
 register_shutdown_function('\TestBootstart\handleShutdown');
+
 /**
  * @param int    $errno
  * @param string $errstr

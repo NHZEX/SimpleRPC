@@ -22,10 +22,6 @@ use ReflectionFunction;
  */
 class TransferFunAsync extends TransferAbstract
 {
-    /** @var int 执行超时时长 */
-    private $execTimeLimit = 600;
-    /** @var int 方法创建时间 */
-    private $createTime;
     /** @var Middleware[] */
     private $middlewares = [];
     /** @var Closure[] 执行成功 */
@@ -43,19 +39,6 @@ class TransferFunAsync extends TransferAbstract
         $this->rpc = $rpc;
         $this->methodName = $name;
         $this->methodArgv = $argv;
-        $this->createTime = time();
-        $this->stopTime = $this->createTime + $this->execTimeLimit;
-    }
-
-    /**
-     * 设置执行超时
-     * @param int $time
-     * @return $this
-     */
-    public function setExecTimeOut(int $time)
-    {
-        $this->stopTime = $time;
-        return $this;
     }
 
     /**
@@ -64,14 +47,6 @@ class TransferFunAsync extends TransferAbstract
     public function getResult()
     {
         return $this->result;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isFailure(): bool
-    {
-        return $this->isFailure;
     }
 
     /**
@@ -117,6 +92,11 @@ class TransferFunAsync extends TransferAbstract
         if ($this->exec) {
             return false;
         }
+        // 记录启动时间
+        $this->execTime = time();
+        // 计算停止时间
+        $this->stopTime = $this->execTime + $this->timeout;
+        // 发送执行请求
         $this->rpc->request($this);
         $this->exec = true;
         return true;
