@@ -13,6 +13,7 @@ use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
 use HZEX\TpSwoole\Contract\Event\SwooleServerTcpInterface;
 use HZEX\TpSwoole\Manager;
+use Swoole\Coroutine;
 use Swoole\Server;
 use Swoole\Timer;
 use think\Container;
@@ -201,12 +202,12 @@ class RpcServer implements SwooleServerTcpInterface
         TransferFrame::setEncryptHandle(function ($data) {
             $session = RpcContext::getSession();
             $conn = $session->getConnection();
-            return  $this->crypto->encrypt($data, '123456789', "{$conn->remote_ip}:{$conn->remote_port}");
+            return  $this->crypto->encrypt($data, $session->getCryptoKey(), "{$conn->remote_ip}:{$conn->remote_port}");
         });
         TransferFrame::setDecryptHandle(function ($data) {
             $session = RpcContext::getSession();
             $conn = $session->getConnection();
-            return $this->crypto->decrypt($data, '123456789', "{$conn->remote_ip}:{$conn->remote_port}");
+            return $this->crypto->decrypt($data, $session->getCryptoKey(), "{$conn->remote_ip}:{$conn->remote_port}");
         });
 
         Timer::tick(5000, function () use ($server) {
@@ -253,7 +254,11 @@ class RpcServer implements SwooleServerTcpInterface
             RpcContext::setSession($session);
 
             // 连接建立
-            $this->tunnel->send(TransferFrame::link($fd));
+            $frame = TransferFrame::link($fd);
+            $frame->setBody(serialize([
+                'crypto_key' => $session->getCryptoKey(),
+            ]));
+            $this->tunnel->send($frame);
             $this->observer->onConnect($fd, $connection);
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
@@ -270,10 +275,12 @@ class RpcServer implements SwooleServerTcpInterface
     {
         try {
             // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
-            if ($message instanceof TransferFrame) {
-                RpcContext::setFd($fd = $message->getFd());
-                RpcContext::setSession($this->fdSession[$fd]);
-                $this->terminal->receive($message);
+            if (is_array($message) && $message[1] instanceof TransferFrame) {
+                /** @var $frame TransferFrame */
+                [$cid, $frame] = $message;
+                // 拷贝来源上下文
+                RpcContext::copyContext($cid);
+                $this->terminal->receive($frame);
             }
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
@@ -310,7 +317,7 @@ class RpcServer implements SwooleServerTcpInterface
                 $this->terminal->receive($packet);
             } else {
                 // echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
-                $server->sendMessage($packet, $packet->getWorkerId());
+                $server->sendMessage([Coroutine::getCid(), $packet], $packet->getWorkerId());
             }
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
