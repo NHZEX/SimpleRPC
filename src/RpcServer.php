@@ -68,9 +68,17 @@ class RpcServer implements SwooleServerTcpInterface
      */
     private $inited = false;
     /**
-     * @var RpcSession[]
+     * @var Connection[]
      */
-    private $fdSession = [];
+    private $fdConn = [];
+    /**
+     * @var string
+     */
+    private $cryptoKey;
+    /**
+     * @var string
+     */
+    private $cryptoRealKey;
     /**
      * @var CryptoAes
      */
@@ -148,6 +156,9 @@ class RpcServer implements SwooleServerTcpInterface
         // TODO 移除与Tp的硬绑定
         Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
         Container::getInstance()->instance(RpcServer::class, $this);
+        // 设置全局通信密钥
+        $this->cryptoKey = openssl_random_pseudo_bytes(16);
+        $this->cryptoRealKey = hash('md5', $this->cryptoKey, true);
     }
 
     /**
@@ -181,7 +192,7 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function existSession(int $fd): bool
     {
-        return isset($this->fdSession[$fd]);
+        return isset($this->fdConn[$fd]);
     }
 
     /**
@@ -198,15 +209,13 @@ class RpcServer implements SwooleServerTcpInterface
         $this->inited = true;
         $this->terminal->setSnowFlake(new SnowFlake($workerId));
 
-        TransferFrame::setEncryptHandle(function ($data) {
-            $session = RpcContext::getSession();
-            $conn = $session->getConnection();
-            return  $this->crypto->encrypt($data, $session->getCryptoKey(), "{$conn->remote_ip}:{$conn->remote_port}");
+        TransferFrame::setEncryptHandle(function ($data, TransferFrame $frame) {
+            $conn = $this->getConnection($frame->getFd());
+            return  $this->crypto->encrypt($data, $this->cryptoRealKey, "{$conn->remote_ip}:{$conn->remote_port}");
         });
-        TransferFrame::setDecryptHandle(function ($data) {
-            $session = RpcContext::getSession();
-            $conn = $session->getConnection();
-            return $this->crypto->decrypt($data, $session->getCryptoKey(), "{$conn->remote_ip}:{$conn->remote_port}");
+        TransferFrame::setDecryptHandle(function ($data, TransferFrame $frame) {
+            $conn = $this->getConnection($frame->getFd());
+            return $this->crypto->decrypt($data, $this->cryptoRealKey, "{$conn->remote_ip}:{$conn->remote_port}");
         });
 
         Timer::tick(5000, function () use ($server) {
@@ -240,25 +249,26 @@ class RpcServer implements SwooleServerTcpInterface
     {
         try {
 //            echo "connect#{$server->worker_id}: $fd\n";
+            $conn = $this->createConnection($fd);
 
-            $connection = Connection::make($server->getClientInfo($fd) ?: []);
-            $this->fdSession[$fd] = $session = new RpcSession($server->worker_id, $connection);
-
-            if (false === $this->observer->auth($fd, $connection)) {
+            $result = $this->observer->auth($fd, $conn);
+            if (false === $result || empty($result)) {
                 $server->close($fd);
                 return;
             }
-
-            $session->initPassword();
-            RpcContext::setSession($session);
+            // 如果响应整数则绑定为Uid
+            if (is_int($result)) {
+                $conn->uid = $result;
+                $this->server->bind($fd, $result);
+            }
 
             // 连接建立
             $frame = TransferFrame::link($fd);
             $frame->setBody(serialize([
-                'crypto_key' => $session->getCryptoKey(),
+                'crypto_key' => $this->cryptoKey,
             ]));
             $this->tunnel->send($frame);
-            $this->observer->onConnect($fd, $connection);
+            $this->observer->onConnect($fd, $conn);
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
         }
@@ -275,15 +285,15 @@ class RpcServer implements SwooleServerTcpInterface
         try {
             // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
             if (is_array($message)
-                && $message[0] instanceof RpcSession
-                && $message[1] instanceof TransferFrame
+                && 2 === count($message)
+                && $message[0] instanceof TransferFrame
             ) {
                 /** @var $frame TransferFrame */
-                /** @var $session RpcSession */
-                [$session, $frame] = $message;
-                // 拷贝来源上下文
+                /** @var $uid int */
+                [$frame, $uid] = $message;
+                // 设置Rpc当前请求Fd
                 RpcContext::setFd($frame->getFd());
-                RpcContext::setSession($session);
+                RpcContext::setUid($uid);
                 $this->terminal->receive($frame);
             }
         } catch (Throwable $throwable) {
@@ -300,21 +310,14 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onReceive(Server $server, int $fd, int $reactorId, string $data): void
     {
-        if (!isset($this->fdSession[$fd])) {
-            // 会话不存在，断开连接
-            $connection = Connection::make($server->getClientInfo($fd) ?: []);
-            echo "client {$fd}#({$connection->remote_ip}) disconnect, session does not exist\n";
-            $server->close($fd);
-            return;
-        }
-        // 建立请求上下文
-        RpcContext::setFd($fd);
-        RpcContext::setSession($this->fdSession[$fd]);
         try {
-            $connection = Connection::make($server->getClientInfo($fd) ?: []);
-            if ($this->observer->onReceive($fd, $data, $connection)) {
+            $conn = $this->getConnection($fd);
+            if ($this->observer->onReceive($fd, $data, $conn)) {
                 return;
             }
+            // 设置Rpc当前请求Fd
+            RpcContext::setFd($fd);
+            RpcContext::setUid($conn->uid);
             // echo "receive#{$server->worker_id}: $fd >> " . bin2hex(substr($data, 0, 36)) . PHP_EOL;
             try {
                 $packet = TransferFrame::make($data, $fd);
@@ -330,7 +333,7 @@ class RpcServer implements SwooleServerTcpInterface
                 $this->terminal->receive($packet);
             } else {
                 // echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
-                $server->sendMessage([RpcContext::getSession(), $packet], $packet->getWorkerId());
+                $server->sendMessage([$packet, $conn->uid], $packet->getWorkerId());
             }
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
@@ -349,12 +352,56 @@ class RpcServer implements SwooleServerTcpInterface
             return;
         }
         try {
-            $connection = Connection::make($server->getClientInfo($fd) ?: []);
-            $this->observer->onClose($fd, $connection);
+            $conn = $this->getConnection($fd);
+            $this->observer->onClose($fd, $conn);
             $this->terminal->destroyInstanceHosting($fd);
-            unset($this->fdSession[$fd]);
+            $this->delConnection($fd);
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);
         }
+    }
+
+    /**
+     * 创建连接信息缓存
+     * @param int $fd
+     * @return Connection|null
+     */
+    public function createConnection(int $fd): ?Connection
+    {
+        $conn = $this->getConnection($fd);
+        if (null === $conn) {
+            return null;
+        }
+        return $this->fdConn[$fd] = $conn;
+    }
+
+    /**
+     * 获取连接信息
+     * @param int $fd
+     * @return Connection|null
+     */
+    public function getConnection(int $fd): ?Connection
+    {
+        // 如果属于当前进程则直接获取
+        if (isset($this->fdConn[$fd])) {
+            return $this->fdConn[$fd];
+        }
+        // 无法直接获取
+        // 1. fd处理worker不是当前worker
+        // 2. fd已经被关闭
+        $info = $this->server->getClientInfo($fd);
+        if (false === $info) {
+            return null;
+        }
+        return Connection::make($info);
+    }
+
+    /**
+     * 移除连接信息
+     * @param int $fd
+     */
+    public function delConnection(int $fd): void
+    {
+        unset($this->fdConn[$fd]);
     }
 }

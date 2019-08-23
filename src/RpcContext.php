@@ -17,24 +17,13 @@ class RpcContext
         return Coroutine::getContext()[__CLASS__ . '_fd'] ?? null;
     }
 
-    public static function setSession(RpcSession $session)
+    public static function setUid(?int $uid)
     {
-        Coroutine::getContext()[__CLASS__ . '_session'] = $session;
+        Coroutine::getContext()[__CLASS__ . '_uid'] = $uid;
     }
 
-    public static function getSession(): ?RpcSession
+    public static function getUid(): ?int
     {
-        return Coroutine::getContext()[__CLASS__ . '_session'] ?? null;
-    }
-
-    public static function copyContext(int $cid)
-    {
-        $context = Coroutine::getContext($cid);
-        $target = Coroutine::getContext();
-        foreach ($context as $key => $value) {
-            if (0 === strpos($key, __CLASS__)) {
-                $target[$key] = $value;
-            }
-        }
+        return Coroutine::getContext()[__CLASS__ . '_uid'] ?? null;
     }
 }

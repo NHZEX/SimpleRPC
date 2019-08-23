@@ -11,9 +11,9 @@ interface RpcHandleInterface
     /**
      * @param int        $fd
      * @param Connection $connection
-     * @return bool
+     * @return bool|int
      */
-    public function auth(int $fd, Connection $connection): bool;
+    public function auth(int $fd, Connection $connection);
 
     /**
      * @param int        $fd

@@ -76,6 +76,11 @@ class RpcClient
      * @var array
      */
     private $connInfo;
+    /**
+     * 通信密钥
+     * @var string
+     */
+    private $cryptoKey;
 
     /**
      * RpcClient constructor.
@@ -283,10 +288,10 @@ class RpcClient
         $cryptoAdd = "{$address}:{$port}";
 
         TransferFrame::setEncryptHandle(function (string $data) use ($cryptoAdd) {
-            return  $this->crypto->encrypt($data, $this->connInfo['crypto_key'], $cryptoAdd);
+            return  $this->crypto->encrypt($data, $this->cryptoKey, $cryptoAdd);
         });
         TransferFrame::setDecryptHandle(function (string $data) use ($cryptoAdd) {
-            return $this->crypto->decrypt($data, $this->connInfo['crypto_key'], $cryptoAdd);
+            return $this->crypto->decrypt($data, $this->cryptoKey, $cryptoAdd);
         });
     }
 
@@ -310,6 +315,7 @@ class RpcClient
         // 客户端连接成功
         if ($packet::OPCODE_LINK === $packet->getOpcode()) {
             $this->connInfo = unserialize($packet->getBody());
+            $this->cryptoKey = hash('md5', $this->connInfo['crypto_key'], true);
             $this->observer->onConnect();
             return;
         }

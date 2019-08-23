@@ -36,7 +36,7 @@ class RpcServer implements RpcHandleInterface
      * @param Connection $connection
      * @return bool
      */
-    public function auth(int $fd, Connection $connection): bool
+    public function auth(int $fd, Connection $connection)
     {
         return true;
     }
