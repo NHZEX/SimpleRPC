@@ -78,8 +78,12 @@ class ClientTcp implements TunnelInterface
         if (true === $this->handle->onSend($frame)) {
             return true;
         }
-
+        // 打包数据
         $data = $frame->packet();
+        // 如果连接无效则中止发送
+        if (!$this->client->isConnected()) {
+            return false;
+        }
         // echo "clientTcpSend: $frame\n";
         if ($this->client->send($data) !== strlen($data)) {
             $errMsg = "rpc send data error: {$this->client->errCode}#{$this->client->errMsg}";

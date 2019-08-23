@@ -59,9 +59,14 @@ class ServerTcp implements TunnelInterface
         if (true === $this->handle->onSend($frame->getFd(), $frame)) {
             return true;
         }
-
+        // 设置帧归属地
         $frame->setWorkerId($this->server->worker_id);
+        // 打包数据
         $data = $frame->packet();
+        // 如果连接无效则中止发送
+        if (!$this->server->exist($frame->getFd())) {
+            return false;
+        }
         // echo "serverTcpSend >> $frame\n";
         if (false === $this->server->send($frame->getFd(), $data)) {
             $errCode = $this->server->getLastError();

@@ -281,11 +281,14 @@ class RpcClient
     protected function onConnect()
     {
         $this->startKeep();
-
-        /** @var Coroutine\Socket $socket */
-        $socket = $this->client->exportSocket();
-        ['address' => $address, 'port' => $port] = $socket->getsockname();
-        $cryptoAdd = "{$address}:{$port}";
+        
+        $info = $this->client->getsockname();
+        if (empty($info)) {
+            $this->logger->warning('连接异常，无法获取必要信息');
+            $this->close();
+            return;
+        }
+        $cryptoAdd = "{$info['host']}:{$info['port']}";
 
         TransferFrame::setEncryptHandle(function (string $data) use ($cryptoAdd) {
             return  $this->crypto->encrypt($data, $this->cryptoKey, $cryptoAdd);
