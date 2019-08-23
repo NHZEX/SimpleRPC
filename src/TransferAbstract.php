@@ -216,6 +216,6 @@ abstract class TransferAbstract implements TransferInterface
 
     public function __toString()
     {
-        return "rpc transfer: {$this->methodName}#{$this->requestId}#{$this->cid}";
+        return "transfer: {$this->methodName}#{$this->requestId}#{$this->cid}";
     }
 }

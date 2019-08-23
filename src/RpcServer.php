@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Closure;
-use HZEX\SimpleRpc\Exception\RpcUnpackingException;
+use HZEX\SimpleRpc\Exception\RpcInvalidFrame;
 use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -13,7 +13,6 @@ use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
 use HZEX\TpSwoole\Contract\Event\SwooleServerTcpInterface;
 use HZEX\TpSwoole\Manager;
-use Swoole\Coroutine;
 use Swoole\Server;
 use Swoole\Timer;
 use think\Container;
@@ -275,11 +274,16 @@ class RpcServer implements SwooleServerTcpInterface
     {
         try {
             // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
-            if (is_array($message) && $message[1] instanceof TransferFrame) {
+            if (is_array($message)
+                && $message[0] instanceof RpcSession
+                && $message[1] instanceof TransferFrame
+            ) {
                 /** @var $frame TransferFrame */
-                [$cid, $frame] = $message;
+                /** @var $session RpcSession */
+                [$session, $frame] = $message;
                 // 拷贝来源上下文
-                RpcContext::copyContext($cid);
+                RpcContext::setFd($frame->getFd());
+                RpcContext::setSession($session);
                 $this->terminal->receive($frame);
             }
         } catch (Throwable $throwable) {
@@ -296,6 +300,13 @@ class RpcServer implements SwooleServerTcpInterface
      */
     public function onReceive(Server $server, int $fd, int $reactorId, string $data): void
     {
+        if (!isset($this->fdSession[$fd])) {
+            // 会话不存在，断开连接
+            $connection = Connection::make($server->getClientInfo($fd) ?: []);
+            echo "client {$fd}#({$connection->remote_ip}) disconnect, session does not exist\n";
+            $server->close($fd);
+            return;
+        }
         // 建立请求上下文
         RpcContext::setFd($fd);
         RpcContext::setSession($this->fdSession[$fd]);
@@ -305,9 +316,11 @@ class RpcServer implements SwooleServerTcpInterface
                 return;
             }
             // echo "receive#{$server->worker_id}: $fd >> " . bin2hex(substr($data, 0, 36)) . PHP_EOL;
-            $packet = TransferFrame::make($data, $fd);
-            if (false === $packet instanceof TransferFrame) {
-                throw new RpcUnpackingException('数据解包错误');
+            try {
+                $packet = TransferFrame::make($data, $fd);
+            } catch (RpcInvalidFrame $invalidFrame) {
+                echo "invalid frame discard #{$fd}, {$invalidFrame->getCode()}#{$invalidFrame->getMessage()}\n";
+                return;
             }
 
             if ($server->worker_id === $packet->getWorkerId()
@@ -317,7 +330,7 @@ class RpcServer implements SwooleServerTcpInterface
                 $this->terminal->receive($packet);
             } else {
                 // echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
-                $server->sendMessage([Coroutine::getCid(), $packet], $packet->getWorkerId());
+                $server->sendMessage([RpcContext::getSession(), $packet], $packet->getWorkerId());
             }
         } catch (Throwable $throwable) {
             Manager::logServerError($throwable);

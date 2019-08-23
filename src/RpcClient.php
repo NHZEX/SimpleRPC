@@ -8,7 +8,7 @@ use HZEX\SimpleRpc\Exception\RpcClientConnectException;
 use HZEX\SimpleRpc\Exception\RpcClientException;
 use HZEX\SimpleRpc\Exception\RpcClientRecvException;
 use HZEX\SimpleRpc\Exception\RpcException;
-use HZEX\SimpleRpc\Exception\RpcUnpackingException;
+use HZEX\SimpleRpc\Exception\RpcInvalidFrame;
 use HZEX\SimpleRpc\Observer\ClientHandleInterface;
 use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -147,14 +147,16 @@ class RpcClient
                     }
                 } catch (RpcClientException $ce) {
                     $this->logger->warning("rpc client error: {$ce->getCode()} {$ce->getMessage()}");
-                    // 重连判断
+                    // 是否连接被断开
                     if ($ce->isDisconnect()) {
+                        // 关闭客户端
+                        $this->client->close();
                         // 如果不是连接失败则触发连接关闭事件
                         if (!$ce instanceof RpcClientConnectException) {
+                            $this->stopKeep();
                             // 触发连接断开事件
                             go(Closure::fromCallable([$this, 'onClose']));
                         }
-                        $this->client->close();
                         if ($this->reConnect) {
                             Coroutine::sleep($this->reConnectInterval);
                             continue;
@@ -291,18 +293,19 @@ class RpcClient
     /**
      * @param string $data
      * @throws RpcException
-     * @throws RpcUnpackingException
      */
     protected function handleReceive(string $data)
     {
         if ($this->observer->onReceive($data)) {
             return;
         }
-        $packet = TransferFrame::make($data, null);
-        // echo "receive: $packet\n";
-        if (false === $packet instanceof TransferFrame) {
-            throw new RpcUnpackingException('数据解包错误');
+        try {
+            $packet = TransferFrame::make($data, null);
+        } catch (RpcInvalidFrame $invalidFrame) {
+            $this->logger->warning("invalid frame discard, {$invalidFrame->getCode()}#{$invalidFrame->getMessage()}");
+            return;
         }
+        // echo "receive: $packet\n";
 
         // 客户端连接成功
         if ($packet::OPCODE_LINK === $packet->getOpcode()) {
@@ -320,6 +323,5 @@ class RpcClient
     protected function onClose()
     {
         $this->observer->onClose();
-        $this->stopKeep();
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Protocol;
 
 use Closure;
+use Exception;
+use HZEX\SimpleRpc\Exception\RpcInvalidFrame;
 use ReflectionClass;
 use ReflectionException;
 
@@ -24,7 +26,7 @@ class TransferFrame
     public const OPCODE_PING = 0x04;
     /** @var int 操作码 PONG */
     public const OPCODE_PONG = 0x05;
-    /** @var int 操作码 LINK */
+    /** @var int 操作码 连接会话 */
     public const OPCODE_LINK = 0x06;
     /** @var int 操作码 调用类 */
     public const OPCODE_CLASS = 0x07;
@@ -143,12 +145,17 @@ class TransferFrame
      * @param string|null $package
      * @param int|null    $fd
      * @return self|null
+     * @throws RpcInvalidFrame
      */
     public static function make(string $package, ?int $fd = null): ?self
     {
-        $that = new self($fd);
-        if (false === $that->unpack($package) instanceof self) {
-            return null;
+        try {
+            $that = new self($fd);
+            $that->unpack($package);
+        } catch (Exception $e) {
+            $e = new RpcInvalidFrame($e, "invalid frame: ({$e->getCode()}){$e->getMessage()}");
+            $e->setOriginal($package);
+            throw $e;
         }
         return $that;
     }
@@ -247,27 +254,28 @@ class TransferFrame
 
     /**
      * 解包数据并将内容应用到当前帧
-     * @param string $data
+     * @param string $original
      * @return TransferFrame
+     * @throws RpcInvalidFrame
      */
-    public function unpack(string $data): self
+    public function unpack(string $original): self
     {
         [
             'l' => $length, 'v' => $version, 'flags' => $flags, 'op' => $opcode, 'worker' => $worker, 'h' => $hash,
-        ] = unpack('Nl/Cv/Cflags/Cop/Nworker/H8h', $data); // 4+1+1+1+4+4
+        ] = unpack('Nl/Cv/Cflags/Cop/Nworker/H8h', $original); // 4+1+1+1+4+4
 
         if (self::VERSION !== $version) {
             // 版本不匹配
-            return null;
+            throw new RpcInvalidFrame(null, "version does not match, {$version} != " . self::VERSION);
         }
 
         // 获取Body
-        $data = substr($data, 15, $length) ?: '';
+        $data = substr($original, 15, $length) ?: '';
 
         // 校验数据
-        if ($hash !== hash('adler32', $data)) {
+        if ($hash !== ($okhash = hash('adler32', $data))) {
             // 数据校验错误
-            return null;
+            throw new RpcInvalidFrame(null, "hash does not match, {$hash} != {$okhash}");
         }
 
         // 设置操作码
