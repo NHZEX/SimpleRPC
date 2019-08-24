@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc;
 
 use Closure;
-use HZEX\SimpleRpc\Exception\RpcInvalidFrame;
+use HZEX\SimpleRpc\Exception\RpcFrameException;
 use HZEX\SimpleRpc\Observer\RpcHandleInterface;
 use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -321,7 +321,7 @@ class RpcServer implements SwooleServerTcpInterface
             // echo "receive#{$server->worker_id}: $fd >> " . bin2hex(substr($data, 0, 36)) . PHP_EOL;
             try {
                 $packet = TransferFrame::make($data, $fd);
-            } catch (RpcInvalidFrame $invalidFrame) {
+            } catch (RpcFrameException $invalidFrame) {
                 echo "invalid frame discard #{$fd}, {$invalidFrame->getCode()}#{$invalidFrame->getMessage()}\n";
                 return;
             }

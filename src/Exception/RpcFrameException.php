@@ -5,7 +5,7 @@ namespace HZEX\SimpleRpc\Exception;
 
 use Throwable;
 
-class RpcInvalidFrame extends RpcException
+class RpcFrameException extends RpcException
 {
     private $original;
 

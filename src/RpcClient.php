@@ -8,7 +8,7 @@ use HZEX\SimpleRpc\Exception\RpcClientConnectException;
 use HZEX\SimpleRpc\Exception\RpcClientException;
 use HZEX\SimpleRpc\Exception\RpcClientRecvException;
 use HZEX\SimpleRpc\Exception\RpcException;
-use HZEX\SimpleRpc\Exception\RpcInvalidFrame;
+use HZEX\SimpleRpc\Exception\RpcFrameException;
 use HZEX\SimpleRpc\Observer\ClientHandleInterface;
 use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
@@ -309,7 +309,7 @@ class RpcClient
         }
         try {
             $packet = TransferFrame::make($data, null);
-        } catch (RpcInvalidFrame $invalidFrame) {
+        } catch (RpcFrameException $invalidFrame) {
             $this->logger->warning("invalid frame discard, {$invalidFrame->getCode()}#{$invalidFrame->getMessage()}");
             return;
         }

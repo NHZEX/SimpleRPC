@@ -5,7 +5,7 @@ namespace HZEX\SimpleRpc\Protocol;
 
 use Closure;
 use Exception;
-use HZEX\SimpleRpc\Exception\RpcInvalidFrame;
+use HZEX\SimpleRpc\Exception\RpcFrameException;
 use ReflectionClass;
 use ReflectionException;
 
@@ -145,7 +145,7 @@ class TransferFrame
      * @param string|null $package
      * @param int|null    $fd
      * @return self|null
-     * @throws RpcInvalidFrame
+     * @throws RpcFrameException
      */
     public static function make(string $package, ?int $fd = null): ?self
     {
@@ -153,7 +153,7 @@ class TransferFrame
             $that = new self($fd);
             $that->unpack($package);
         } catch (Exception $e) {
-            $e = new RpcInvalidFrame($e, "invalid frame: ({$e->getCode()}){$e->getMessage()}");
+            $e = new RpcFrameException($e, "invalid frame: ({$e->getCode()}){$e->getMessage()}");
             $e->setOriginal($package);
             throw $e;
         }
@@ -256,7 +256,7 @@ class TransferFrame
      * 解包数据并将内容应用到当前帧
      * @param string $original
      * @return TransferFrame
-     * @throws RpcInvalidFrame
+     * @throws RpcFrameException
      */
     public function unpack(string $original): self
     {
@@ -266,7 +266,7 @@ class TransferFrame
 
         if (self::VERSION !== $version) {
             // 版本不匹配
-            throw new RpcInvalidFrame(null, "version does not match, {$version} != " . self::VERSION);
+            throw new RpcFrameException(null, "version does not match, {$version} != " . self::VERSION);
         }
 
         // 获取Body
@@ -275,7 +275,7 @@ class TransferFrame
         // 校验数据
         if ($hash !== ($okhash = hash('adler32', $data))) {
             // 数据校验错误
-            throw new RpcInvalidFrame(null, "hash does not match, {$hash} != {$okhash}");
+            throw new RpcFrameException(null, "hash does not match, {$hash} != {$okhash}");
         }
 
         // 设置操作码
