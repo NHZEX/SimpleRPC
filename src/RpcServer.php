@@ -26,7 +26,7 @@ class RpcServer implements SwooleServerTcpInterface
 {
     protected const PROTOCOL = [
         'open_length_check' => true,  // 启用包长检测协议
-        'package_max_length' => 524288, // 包最大长度 512kib
+        'package_max_length' => RPC_PACKAGE_MAX_LENGTH, // 包最大长度 1MB
         'package_length_type' => 'N', // 无符号、网络字节序、4字节
         'package_length_offset' => 0,
         'package_body_offset' => 0,

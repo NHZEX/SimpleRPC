@@ -9,7 +9,7 @@ class RpcRemoteExecuteException extends RpcException
 {
     private $remoteTrace;
 
-    public function __construct($message = "", $code = RPC_REMOTE_EXECUTE_EXCEPTION, Throwable $previous = null)
+    public function __construct(string $message, int $code = RPC_REMOTE_EXECUTE_EXCEPTION, Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
     }

@@ -6,6 +6,7 @@ namespace HZEX\SimpleRpc\Protocol;
 use Closure;
 use Exception;
 use HZEX\SimpleRpc\Exception\RpcFrameException;
+use LengthException;
 use ReflectionClass;
 use ReflectionException;
 
@@ -15,6 +16,8 @@ class TransferFrame
     public const VERSION = 0x01;
     /** @var int 工人ID 无效值 */
     public const WORKER_ID_NULL = 0xFFFFFFFF;
+    /** @var int 包头长度 */
+    public const HEAD_LENGTH = 15;
 
     /** @var int 操作码 执行方法 */
     public const OPCODE_EXECUTE = 0x01;
@@ -226,6 +229,14 @@ class TransferFrame
         } else {
             $data = $this->body;
         }
+        // 检测数据包是否小于 1MB - 包头
+        if (strlen($data) + self::HEAD_LENGTH > RPC_PACKAGE_MAX_LENGTH) {
+            $message = sprintf('frame body length exceeded: %d byte > %d byte',
+                strlen($data),
+                RPC_PACKAGE_MAX_LENGTH - self::HEAD_LENGTH
+            );
+            throw new LengthException($message);
+        }
         if ($this->isCrypto() && is_callable(self::$bodyEncryptHandle)) {
             $data = call_user_func(self::$bodyEncryptHandle, $data, $this);
         } else {
@@ -239,7 +250,7 @@ class TransferFrame
         // NCCCH8 = 15
         $package = pack(
             'NCCCNH8',
-            $length + 15,
+            $length + self::HEAD_LENGTH,
             self::VERSION,
             $this->flags,
             $this->opcode,
@@ -270,7 +281,7 @@ class TransferFrame
         }
 
         // 获取Body
-        $data = substr($original, 15, $length) ?: '';
+        $data = substr($original, self::HEAD_LENGTH, $length) ?: '';
 
         // 校验数据
         if ($hash !== ($okhash = hash('adler32', $data))) {

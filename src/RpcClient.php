@@ -65,9 +65,20 @@ class RpcClient
      */
     private $reConnectInterval = 2;
     /**
+     * 心跳启用
+     * @var bool
+     */
+    private $heartbeatEnable = true;
+    /**
+     * 心跳间隔 秒
      * @var int
      */
-    private $keepTimeId;
+    private $heartbeatInterval = 10;
+    /**
+     * 心跳定时器
+     * @var int
+     */
+    private $heartbeatTimeId;
     /**
      * @var CryptoAes
      */
@@ -96,6 +107,22 @@ class RpcClient
     }
 
     /**
+     * @param bool $heartbeatEnable
+     */
+    public function setHeartbeatEnable(bool $heartbeatEnable): void
+    {
+        $this->heartbeatEnable = $heartbeatEnable;
+    }
+
+    /**
+     * @param int $heartbeatInterval
+     */
+    public function setHeartbeatInterval(int $heartbeatInterval): void
+    {
+        $this->heartbeatInterval = $heartbeatInterval;
+    }
+
+    /**
      * 连接双向Rpc
      * @param RpcProvider $provider
      * @param string      $host
@@ -111,7 +138,7 @@ class RpcClient
 
         $this->client->set([
             'open_length_check' => true,  // 启用包长检测协议
-            'package_max_length' => 524288, // 包最大长度 512kib
+            'package_max_length' => RPC_PACKAGE_MAX_LENGTH, // 包最大长度 1MB
             'package_length_type' => 'N', // 无符号、网络字节序、4字节
             'package_length_offset' => 0,
             'package_body_offset' => 0,
@@ -158,7 +185,7 @@ class RpcClient
                         $this->client->close();
                         // 如果不是连接失败则触发连接关闭事件
                         if (!$ce instanceof RpcClientConnectException) {
-                            $this->stopKeep();
+                            $this->stopHeartbeat();
                             // 触发连接断开事件
                             go(Closure::fromCallable([$this, 'onClose']));
                         }
@@ -214,7 +241,7 @@ class RpcClient
      */
     public function close()
     {
-        $this->stopKeep();
+        $this->stopHeartbeat();
         $this->reConnect = false;
         $this->isConnected = false;
         $this->tunnel->stop();
@@ -253,11 +280,19 @@ class RpcClient
     /**
      * 开始心跳
      */
-    private function startKeep()
+    private function startHeartbeat()
     {
-        $this->keepTimeId = Timer::tick(1000, function () {
+        // 心跳检测禁用
+        if (!$this->heartbeatEnable) {
+            return;
+        }
+        // 防止重复启用
+        if ($this->heartbeatTimeId && Timer::exists($this->heartbeatTimeId)) {
+            return;
+        }
+        $this->heartbeatTimeId = Timer::tick($this->heartbeatInterval * 1000, function () {
             if (false === $this->client->isConnected()) {
-                $this->stopKeep();
+                $this->stopHeartbeat();
                 return;
             }
             $this->terminal->ping();
@@ -267,12 +302,12 @@ class RpcClient
     /**
      * 停止心跳
      */
-    private function stopKeep()
+    private function stopHeartbeat()
     {
-        if ($this->keepTimeId && Timer::exists($this->keepTimeId)) {
-            Timer::clear($this->keepTimeId);
+        if ($this->heartbeatTimeId && Timer::exists($this->heartbeatTimeId)) {
+            Timer::clear($this->heartbeatTimeId);
         }
-        $this->keepTimeId = null;
+        $this->heartbeatTimeId = null;
     }
 
     /**
@@ -280,7 +315,7 @@ class RpcClient
      */
     protected function onConnect()
     {
-        $this->startKeep();
+        $this->startHeartbeat();
         
         $info = $this->client->getsockname();
         if (empty($info)) {
