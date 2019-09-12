@@ -197,7 +197,7 @@ class RpcServer implements SwooleServerTcpInterface
 
     /**
      * 工作进程初始化
-     * 世界分裂由此开始
+     * 分裂由此开始
      * @param Server $server
      * @param int    $workerId
      */
@@ -240,6 +240,37 @@ class RpcServer implements SwooleServerTcpInterface
     }
 
     /**
+     * @param int $fd
+     * @return bool|Connection|null
+     */
+    protected function isAuthorize(int $fd)
+    {
+        if (empty($this->fdConn[$fd])) {
+            $conn = $this->createConnection($fd);
+            if (empty($conn)) {
+                return false;
+            }
+            $result = $this->observer->auth($fd, $conn);
+            if (false === $result || empty($result)) {
+                return false;
+            }
+            // 如果响应整数则绑定为Uid
+            if (is_int($result)) {
+                if (null === $conn->uid) {
+                    $conn->uid = $result;
+                    $this->server->bind($fd, $result);
+                } elseif ($result !== $conn->uid) {
+                    // 如果绑定id 与 验证id 不一致则为异常连接
+                    return false;
+                }
+            }
+            return $conn;
+        } else {
+            return $this->fdConn[$fd];
+        }
+    }
+
+    /**
      * 连接进入（Tcp）
      * @param Server $server
      * @param int    $fd
@@ -249,17 +280,10 @@ class RpcServer implements SwooleServerTcpInterface
     {
         try {
 //            echo "connect#{$server->worker_id}: $fd\n";
-            $conn = $this->createConnection($fd);
-
-            $result = $this->observer->auth($fd, $conn);
-            if (false === $result || empty($result)) {
+            if (!($conn = $this->isAuthorize($fd))) {
+                // 验证失败，断开连接
                 $server->close($fd);
                 return;
-            }
-            // 如果响应整数则绑定为Uid
-            if (is_int($result)) {
-                $conn->uid = $result;
-                $this->server->bind($fd, $result);
             }
 
             // 连接建立
@@ -311,7 +335,11 @@ class RpcServer implements SwooleServerTcpInterface
     public function onReceive(Server $server, int $fd, int $reactorId, string $data): void
     {
         try {
-            $conn = $this->getConnection($fd);
+            if (!($conn = $this->isAuthorize($fd))) {
+                // 验证失败，断开连接
+                $server->close($fd);
+                return;
+            }
             if ($this->observer->onReceive($fd, $data, $conn)) {
                 return;
             }
@@ -386,9 +414,7 @@ class RpcServer implements SwooleServerTcpInterface
         if (isset($this->fdConn[$fd])) {
             return $this->fdConn[$fd];
         }
-        // 无法直接获取
-        // 1. fd处理worker不是当前worker
-        // 2. fd已经被关闭
+        // 自动获取连接信息
         $info = $this->server->getClientInfo($fd);
         if (false === $info) {
             return null;
