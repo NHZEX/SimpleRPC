@@ -231,7 +231,8 @@ class TransferFrame
         }
         // 检测数据包是否小于 1MB - 包头
         if (strlen($data) + self::HEAD_LENGTH > RPC_PACKAGE_MAX_LENGTH) {
-            $message = sprintf('frame body length exceeded: %d byte > %d byte',
+            $message = sprintf(
+                'frame body length exceeded: %d byte > %d byte',
                 strlen($data),
                 RPC_PACKAGE_MAX_LENGTH - self::HEAD_LENGTH
             );
