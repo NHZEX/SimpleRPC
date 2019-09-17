@@ -15,17 +15,16 @@
         "ext-sockets": "*",
         "ext-swoole": "~4.3",
         "ext-zlib": "*",
+        "ext-posix": "*",
+        "nhzex/zsw-core": "dev-master",
         "psr/container": "^1.0",
         "psr/log": "^1.1"
     },
     "require-dev": {
-        "ext-posix": "*",
-        "nhzex/tp-swoole": "2.0.x-dev",
         "phpunit/phpunit": "^8.1",
         "swoft/swoole-ide-helper": "^4.4",
-        "symfony/process": "^4.3",
         "symfony/var-dumper": "^4.3",
-        "topthink/framework": "6.0.x-dev#caf09dd37b56208c15a8ca251c675ec44f815ba8"
+        "topthink/think-container": "^2.0"
     },
     "suggest": {
         "nhzex/tp-swoole": "must be installed v2.0"

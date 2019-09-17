@@ -11,12 +11,12 @@ use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
-use HZEX\TpSwoole\Contract\Event\SwooleServerTcpInterface;
-use HZEX\TpSwoole\Manager;
 use Swoole\Server;
 use Swoole\Timer;
 use think\Container;
 use Throwable;
+use unzxin\zswCore\Contract\Events\SwooleServerTcpInterface;
+use unzxin\zswCore\Event;
 
 /**
  * Class RpcServer
@@ -25,11 +25,11 @@ use Throwable;
 class RpcServer implements SwooleServerTcpInterface
 {
     protected const PROTOCOL = [
-        'open_length_check' => true,  // 启用包长检测协议
-        'package_max_length' => RPC_PACKAGE_MAX_LENGTH, // 包最大长度 1MB
-        'package_length_type' => 'N', // 无符号、网络字节序、4字节
+        'open_length_check'     => true,  // 启用包长检测协议
+        'package_max_length'    => RPC_PACKAGE_MAX_LENGTH, // 包最大长度 1MB
+        'package_length_type'   => 'N', // 无符号、网络字节序、4字节
         'package_length_offset' => 0,
-        'package_body_offset' => 0,
+        'package_body_offset'   => 0,
     ];
     /**
      * @var Server
@@ -83,6 +83,10 @@ class RpcServer implements SwooleServerTcpInterface
      * @var CryptoAes
      */
     private $crypto;
+    /**
+     * @var Closure
+     */
+    private $onError;
 
     /**
      * RpcServer constructor.
@@ -91,7 +95,7 @@ class RpcServer implements SwooleServerTcpInterface
     public function __construct(RpcHandleInterface $observer)
     {
         $this->observer = $observer;
-        $this->crypto = new CryptoAes();
+        $this->crypto   = new CryptoAes();
     }
 
     /**
@@ -119,25 +123,30 @@ class RpcServer implements SwooleServerTcpInterface
     }
 
     /**
-     * @param Manager     $manager
+     * @param Server      $server
+     * @param Event       $event
      * @param RpcProvider $provider
      * @param string      $host
      * @param int         $port
      * @return RpcServer
      */
-    public function listen(Manager $manager, RpcProvider $provider, string $host = '0.0.0.0', int $port = 9502)
-    {
-        $this->server = $manager->getSwoole();
-        $this->host = $host ?: $this->host;
-        $this->port = $port;
+    public function listen(
+        Server $server,
+        Event $event,
+        RpcProvider $provider,
+        string $host = '0.0.0.0',
+        int $port = 9502
+    ) {
+        $this->server     = $server;
+        $this->host       = $host ?: $this->host;
+        $this->port       = $port;
         $this->serverPort = $this->server->addlistener($host, $port, SWOOLE_SOCK_TCP);
 
         $this->serverPort->set(self::PROTOCOL);
 
-        $event = $manager->getEvent();
-        $event->listen('swoole.onWorkerStart', Closure::fromCallable([$this, 'workerStart']));
-        $event->listen('swoole.onPipeMessage', Closure::fromCallable([$this, 'handlePipeMessage']));
-        $event->listen('swoole.onWorkerStop', Closure::fromCallable([$this, 'workerStop']));
+        $event->onSwooleWorkerStart(Closure::fromCallable([$this, 'workerStart']));
+        $event->onSwoolePipeMessage(Closure::fromCallable([$this, 'handlePipeMessage']));
+        $event->onSwooleWorkerStop(Closure::fromCallable([$this, 'workerStop']));
         $this->serverPort->on('Connect', Closure::fromCallable([$this, 'onConnect']));
         $this->serverPort->on('Receive', Closure::fromCallable([$this, 'onReceive']));
         $this->serverPort->on('Close', Closure::fromCallable([$this, 'onClose']));
@@ -151,14 +160,22 @@ class RpcServer implements SwooleServerTcpInterface
      */
     protected function initRpcServer(RpcProvider $provider)
     {
-        $this->tunnel = new ServerTcp($this->server, $this->observer);
+        $this->tunnel   = new ServerTcp($this->server, $this->observer);
         $this->terminal = new RpcTerminal($this->tunnel, $provider);
         // TODO 移除与Tp的硬绑定
         Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
         Container::getInstance()->instance(RpcServer::class, $this);
         // 设置全局通信密钥
-        $this->cryptoKey = openssl_random_pseudo_bytes(16);
+        $this->cryptoKey     = openssl_random_pseudo_bytes(16);
         $this->cryptoRealKey = hash('md5', $this->cryptoKey, true);
+    }
+
+    /**
+     * @param Closure $onError
+     */
+    public function setOnError(Closure $onError): void
+    {
+        $this->onError = $onError;
     }
 
     /**
@@ -211,7 +228,7 @@ class RpcServer implements SwooleServerTcpInterface
 
         TransferFrame::setEncryptHandle(function ($data, TransferFrame $frame) {
             $conn = $this->getConnection($frame->getFd());
-            return  $this->crypto->encrypt($data, $this->cryptoRealKey, "{$conn->remote_ip}:{$conn->remote_port}");
+            return $this->crypto->encrypt($data, $this->cryptoRealKey, "{$conn->remote_ip}:{$conn->remote_port}");
         });
         TransferFrame::setDecryptHandle(function ($data, TransferFrame $frame) {
             $conn = $this->getConnection($frame->getFd());
@@ -279,7 +296,7 @@ class RpcServer implements SwooleServerTcpInterface
     public function onConnect(Server $server, int $fd, int $reactorId): void
     {
         try {
-//            echo "connect#{$server->worker_id}: $fd\n";
+            //            echo "connect#{$server->worker_id}: $fd\n";
             if (!($conn = $this->isAuthorize($fd))) {
                 // 验证失败，断开连接
                 $server->close($fd);
@@ -294,7 +311,7 @@ class RpcServer implements SwooleServerTcpInterface
             $this->tunnel->send($frame);
             $this->observer->onConnect($fd, $conn);
         } catch (Throwable $throwable) {
-            Manager::logServerError($throwable);
+            $this->handleException($throwable);
         }
     }
 
@@ -321,7 +338,7 @@ class RpcServer implements SwooleServerTcpInterface
                 $this->terminal->receive($frame);
             }
         } catch (Throwable $throwable) {
-            Manager::logServerError($throwable);
+            $this->handleException($throwable);
         }
     }
 
@@ -364,7 +381,7 @@ class RpcServer implements SwooleServerTcpInterface
                 $server->sendMessage([$packet, $conn->uid], $packet->getWorkerId());
             }
         } catch (Throwable $throwable) {
-            Manager::logServerError($throwable);
+            $this->handleException($throwable);
         }
     }
 
@@ -385,7 +402,27 @@ class RpcServer implements SwooleServerTcpInterface
             $this->terminal->destroyInstanceHosting($fd);
             $this->delConnection($fd);
         } catch (Throwable $throwable) {
-            Manager::logServerError($throwable);
+            $this->handleException($throwable);
+        }
+    }
+
+    protected function handleException(Throwable $e)
+    {
+        if ($this->onError instanceof Closure) {
+            call_user_func($this->onError, $e);
+        } else {
+            $output = "============== Error ==============\n";
+            $next = $e;
+            do {
+                if ($next !== $e) {
+                    $output = "======== Next\n";
+                }
+                $output .= "E: [{$e->getCode()}] {$e->getMessage()}\n";
+                $output .= "F: {$e->getCode()}:{$e->getLine()}\n";
+                $output .= "T: {$e->getTraceAsString()}\n";
+            } while ($next = $next->getPrevious());
+            $output = "=============== End ===============\n";
+            echo $output;
         }
     }
 
