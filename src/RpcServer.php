@@ -13,7 +13,6 @@ use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
 use Swoole\Server;
 use Swoole\Timer;
-use think\Container;
 use Throwable;
 use unzxin\zswCore\Contract\Events\SwooleServerTcpInterface;
 use unzxin\zswCore\Event;
@@ -162,9 +161,9 @@ class RpcServer implements SwooleServerTcpInterface
     {
         $this->tunnel   = new ServerTcp($this->server, $this->observer);
         $this->terminal = new RpcTerminal($this->tunnel, $provider);
-        // TODO 移除与Tp的硬绑定
-        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
-        Container::getInstance()->instance(RpcServer::class, $this);
+
+        Container::getInstance()->rpcTerminal = $this->terminal;
+
         // 设置全局通信密钥
         $this->cryptoKey     = openssl_random_pseudo_bytes(16);
         $this->cryptoRealKey = hash('md5', $this->cryptoKey, true);

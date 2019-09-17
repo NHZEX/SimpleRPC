@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace HZEX\SimpleRpc\Transfer\FunAsync;
 
+use HZEX\SimpleRpc\Container;
 use HZEX\SimpleRpc\Contract\FacadeInterface;
 use HZEX\SimpleRpc\RpcTerminal;
-use think\Container;
 
 /**
  * Class RpcFacadeFun
@@ -26,7 +26,7 @@ abstract class RpcFacadeFun implements FacadeInterface
     public static function make(?int $fd = null)
     {
         /** @var RpcTerminal $terminal */
-        $terminal = Container::getInstance()->make(RpcTerminal::class);
+        $terminal = Container::getInstance()->rpcTerminal;
         return (new static($terminal, $fd));
     }
 

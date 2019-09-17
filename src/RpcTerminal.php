@@ -12,6 +12,7 @@ use HZEX\SimpleRpc\Transfer\Fun\TransferFun;
 use HZEX\SimpleRpc\Transfer\FunAsync\TransferFunAsync;
 use HZEX\SimpleRpc\Transfer\Instance\TransferClass;
 use HZEX\SimpleRpc\Tunnel\TunnelInterface;
+use Swoole\Coroutine;
 use Throwable;
 
 class RpcTerminal
@@ -115,7 +116,7 @@ class RpcTerminal
             }
         }
         // TODO 改为使用队列处理超时请求
-        go(function () use ($gcWait) {
+        Coroutine::create(function () use ($gcWait) {
             try {
                 foreach ($gcWait as $transfer) {
                     $transfer->response(serialize([

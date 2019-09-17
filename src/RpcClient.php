@@ -17,7 +17,6 @@ use Psr\Log\LoggerInterface;
 use Swoole\Coroutine;
 use Swoole\Coroutine\Client;
 use Swoole\Timer;
-use think\Container;
 
 class RpcClient
 {
@@ -151,8 +150,8 @@ class RpcClient
         $this->tunnel = new ClientTcp($this->client, $this->observer);
         $this->terminal = new RpcTerminal($this->tunnel, $provider);
         $this->terminal->setSnowFlake(new SnowFlake(1));
-        // TODO 移除与Tp的硬绑定
-        Container::getInstance()->instance(RpcTerminal::class, $this->terminal);
+
+        Container::getInstance()->rpcTerminal = $this->terminal;
 
         $this->isConnected = true;
         $this->loop();
@@ -164,18 +163,18 @@ class RpcClient
      */
     private function loop()
     {
-        go(function () {
+        Coroutine::create(function () {
             while ($this->isConnected || $this->reConnect) {
                 try {
                     // 连接服务端
                     $this->clientConnect($this->host, $this->port);
                     $this->logger->info("rpc client connect: {$this->host}:{$this->port}");
                     // 触发连接成功事件
-                    go(Closure::fromCallable([$this, 'onConnect']));
+                    Coroutine::create(Closure::fromCallable([$this, 'onConnect']));
                     // 查询接受事件
                     while (true) {
                         $result = $this->clientRecv();
-                        go(Closure::fromCallable([$this, 'handleReceive']), $result);
+                        Coroutine::create(Closure::fromCallable([$this, 'handleReceive']), $result);
                     }
                 } catch (RpcClientException $ce) {
                     $this->logger->warning("rpc client error: {$ce->getCode()} {$ce->getMessage()}");
@@ -187,7 +186,7 @@ class RpcClient
                         if (!$ce instanceof RpcClientConnectException) {
                             $this->stopHeartbeat();
                             // 触发连接断开事件
-                            go(Closure::fromCallable([$this, 'onClose']));
+                            Coroutine::create(Closure::fromCallable([$this, 'onClose']));
                         }
                         if ($this->reConnect) {
                             Coroutine::sleep($this->reConnectInterval);

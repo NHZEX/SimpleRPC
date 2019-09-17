@@ -24,8 +24,7 @@
         "phpunit/phpunit": "^8.1",
         "swoft/swoole-ide-helper": "^4.4",
         "symfony/process": "^4.3",
-        "symfony/var-dumper": "^4.3",
-        "topthink/think-container": "^2.0"
+        "symfony/var-dumper": "^4.3"
     },
     "suggest": {
         "nhzex/tp-swoole": "must be installed v2.0"

@@ -4,11 +4,11 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Transfer\Instance;
 
 use Co;
+use HZEX\SimpleRpc\Container;
 use HZEX\SimpleRpc\Contract\FacadeHandleInterface;
 use HZEX\SimpleRpc\Contract\FacadeInterface;
 use HZEX\SimpleRpc\Exception\RpcRemoteExecuteException;
 use HZEX\SimpleRpc\RpcTerminal;
-use think\Container;
 
 /**
  * 远程类门面
@@ -74,7 +74,7 @@ abstract class RpcFacadeClass implements FacadeInterface
     public static function new(?int $fd = null, ...$argv)
     {
         /** @var RpcTerminal $terminal */
-        $terminal = Container::getInstance()->make(RpcTerminal::class);
+        $terminal = Container::getInstance()->rpcTerminal;
         return (new static($terminal, $fd, $argv));
     }
 

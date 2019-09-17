@@ -14,6 +14,7 @@ use HZEX\SimpleRpc\Tests\Unit\Logger;
 use HZEX\SimpleRpc\Tests\Unit\RpcClientOpserver;
 use HZEX\SimpleRpc\Tests\Unit\TestFacade;
 use PHPUnit\Framework\TestCase;
+use Swoole\Coroutine;
 use Swoole\Timer;
 use function TestBootstart\killRpcServer;
 use function TestBootstart\startRpcServer;
@@ -153,7 +154,7 @@ class RpcClientTest extends TestCase
 
         $chan = new Co\Channel(1);
         while ($count--) {
-            go(function () use ($result, $chan) {
+            Coroutine::create(function () use ($result, $chan) {
                 $this->rpcClient->getTerminal()
                     ->methodAsync(null, 'TestFun', 1, $result)
                     ->then(function ($r) use ($chan) {
