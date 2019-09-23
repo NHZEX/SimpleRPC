@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "71e5ac3d12fc6fce90948a8b3a23615d",
+    "content-hash": "2d71777ef71132932ba0242e927f4790",
     "packages": [
         {
             "name": "nhzex/zsw-core",
