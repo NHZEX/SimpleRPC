@@ -16,7 +16,7 @@
         "ext-swoole": "~4.3",
         "ext-zlib": "*",
         "ext-posix": "*",
-        "nhzex/zsw-core": "dev-master",
+        "nhzex/zsw-core": "~1.0.0",
         "psr/container": "^1.0",
         "psr/log": "^1.1"
     },
