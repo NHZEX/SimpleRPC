@@ -27,7 +27,6 @@
         "symfony/var-dumper": "^4.3"
     },
     "suggest": {
-        "nhzex/tp-swoole": "must be installed v2.0"
     },
     "autoload": {
         "psr-4": {
