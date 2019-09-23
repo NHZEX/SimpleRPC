@@ -4,11 +4,11 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ed5f5479ce595ebd2682ecc8505ee0f5",
+    "content-hash": "71e5ac3d12fc6fce90948a8b3a23615d",
     "packages": [
         {
             "name": "nhzex/zsw-core",
-            "version": "dev-master",
+            "version": "v1.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/NHZEX/zsw-core.git",
@@ -1693,16 +1693,16 @@
         },
         {
             "name": "swoft/swoole-ide-helper",
-            "version": "v4.4.5",
+            "version": "v4.4.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/swoft-cloud/swoole-ide-helper.git",
-                "reference": "1b7e5cf6d58c2822bc681247b8e53921ec8fabe7"
+                "reference": "febf5e2845a060e1c42969cdd892f8353797d37b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/swoft-cloud/swoole-ide-helper/zipball/1b7e5cf6d58c2822bc681247b8e53921ec8fabe7",
-                "reference": "1b7e5cf6d58c2822bc681247b8e53921ec8fabe7",
+                "url": "https://api.github.com/repos/swoft-cloud/swoole-ide-helper/zipball/febf5e2845a060e1c42969cdd892f8353797d37b",
+                "reference": "febf5e2845a060e1c42969cdd892f8353797d37b",
                 "shasum": "",
                 "mirrors": [
                     {
@@ -1723,7 +1723,7 @@
                 "swoft",
                 "swoole"
             ],
-            "time": "2019-08-31T04:46:12+00:00"
+            "time": "2019-09-21T16:15:33+00:00"
         },
         {
             "name": "symfony/polyfill-ctype",
@@ -2157,9 +2157,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "nhzex/zsw-core": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
