@@ -4,17 +4,16 @@ php:
   - '7.3'
 
 before_install:
-  - composer self-update
-  - composer validate
-
-before_script:
-  - phpenv config-rm xdebug.ini
   - printf "\n" | pecl install swoole
   - php --ri swoole
+  - composer self-update
+  - composer validate
 
 install:
   - composer update --prefer-dist --no-suggest
 
+before_script:
+  - phpenv config-rm xdebug.ini
 
 script:
   - vendor/bin/phpunit
