@@ -8,6 +8,14 @@ use HZEX\SimpleRpc\Exception\RpcProviderException;
 use ReflectionException;
 use ReflectionFunction;
 use ReflectionMethod;
+use function count;
+use function function_exists;
+use function is_array;
+use function is_object;
+use function is_string;
+use function strpos;
+use function substr;
+use const PHP_VERSION_ID;
 
 class RpcProvider
 {
@@ -28,6 +36,17 @@ class RpcProvider
      * @var RpcTerminal
      */
     private $terminal;
+
+    /**
+     * @var bool
+     */
+    private $isCompatibleCall = false;
+
+    public function __construct()
+    {
+        // 当PHP版本小于 <=7.1 时, 使用兼容模式进行闭包调用
+        $this->isCompatibleCall = PHP_VERSION_ID < 70200;
+    }
 
     /**
      * 克隆Rpc专用实例
@@ -192,7 +211,12 @@ class RpcProvider
     {
         try {
             $reflect = new ReflectionFunction($function);
-            return $reflect->invokeArgs($argv);
+            if ($this->isCompatibleCall && $reflect->isClosure()) {
+                // 解决在`php7.1`调用时会产生`$this`上下文不存在的错误 (https://bugs.php.net/bug.php?id=66430)
+                return $function->__invoke(...$argv);
+            } else {
+                return $reflect->invokeArgs($argv);
+            }
         } catch (ReflectionException $e) {
             throw new RpcProviderException('function invoke failure', RPC_FUNCTION_INVOKE_EXCEPTION, $e);
         }
