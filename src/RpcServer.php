@@ -11,8 +11,8 @@ use HZEX\SimpleRpc\Protocol\Crypto\CryptoAes;
 use HZEX\SimpleRpc\Protocol\TransferFrame;
 use HZEX\SimpleRpc\Struct\Connection;
 use HZEX\SimpleRpc\Tunnel\ServerTcp;
+use Psr\Log\LoggerInterface;
 use Swoole\Server;
-use Swoole\Timer;
 use Throwable;
 use unzxin\zswCore\Contract\Events\SwooleServerTcpInterface;
 use unzxin\zswCore\Event;
@@ -50,6 +50,10 @@ class RpcServer implements SwooleServerTcpInterface
      * @var bool
      */
     private $debug = false;
+    /**
+     * @var LoggerInterface
+     */
+    private $logger;
     /**
      * @var RpcHandleInterface
      */
@@ -186,6 +190,15 @@ class RpcServer implements SwooleServerTcpInterface
     }
 
     /**
+     * @param LoggerInterface $logger
+     */
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
+    }
+
+
+    /**
      * @return RpcTerminal
      */
     public function getTerminal(): RpcTerminal
@@ -234,15 +247,7 @@ class RpcServer implements SwooleServerTcpInterface
             return $this->crypto->decrypt($data, $this->cryptoRealKey, "{$conn->remote_ip}:{$conn->remote_port}");
         });
 
-        Timer::tick(5000, function () use ($server) {
-            $terminal = $this->terminal;
-            if ($this->debug) {
-                echo "RPC_GC#{$server->worker_id}: {$terminal->gcTransfer()}/{$terminal->countTransfer()}\n";
-                echo "RPC_IH#{$server->worker_id}: {$terminal->countInstanceHosting()}\n";
-            } else {
-                $this->terminal->gcTransfer();
-            }
-        });
+        $this->observer->onWorkerStart($this, $workerId);
     }
 
     /**
@@ -253,6 +258,8 @@ class RpcServer implements SwooleServerTcpInterface
         if ($server->taskworker) {
             return;
         }
+
+        $this->observer->onWorkerStop($this);
     }
 
     /**

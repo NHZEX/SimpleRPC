@@ -4,10 +4,22 @@ declare(strict_types=1);
 namespace HZEX\SimpleRpc\Observer;
 
 use HZEX\SimpleRpc\Protocol\TransferFrame;
+use HZEX\SimpleRpc\RpcServer;
 use HZEX\SimpleRpc\Struct\Connection;
 
 interface RpcHandleInterface
 {
+    /**
+     * @param RpcServer $server
+     * @param int       $workerId
+     */
+    public function onWorkerStart(RpcServer $server, int $workerId): void;
+
+    /**
+     * @param RpcServer $server
+     */
+    public function onWorkerStop(RpcServer $server): void;
+
     /**
      * @param int        $fd
      * @param Connection $connection

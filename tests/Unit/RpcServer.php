@@ -32,6 +32,21 @@ class RpcServer implements RpcHandleInterface
     }
 
     /**
+     * @param \HZEX\SimpleRpc\RpcServer $server
+     * @param int                       $workerId
+     */
+    public function onWorkerStart(\HZEX\SimpleRpc\RpcServer $server, int $workerId): void
+    {
+    }
+
+    /**
+     * @param \HZEX\SimpleRpc\RpcServer $server
+     */
+    public function onWorkerStop(\HZEX\SimpleRpc\RpcServer $server): void
+    {
+    }
+
+    /**
      * @param int        $fd
      * @param Connection $connection
      * @return bool
