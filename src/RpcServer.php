@@ -197,7 +197,6 @@ class RpcServer implements SwooleServerTcpInterface
         $this->logger = $logger;
     }
 
-
     /**
      * @return RpcTerminal
      */
@@ -302,7 +301,7 @@ class RpcServer implements SwooleServerTcpInterface
     public function onConnect(Server $server, int $fd, int $reactorId): void
     {
         try {
-            //            echo "connect#{$server->worker_id}: $fd\n";
+            $this->log("rpc connect#{$server->worker_id}: {$fd}");
             if (!($conn = $this->isAuthorize($fd))) {
                 // 验证失败，断开连接
                 $server->close($fd);
@@ -330,11 +329,11 @@ class RpcServer implements SwooleServerTcpInterface
     public function handlePipeMessage(Server $server, int $srcWorkerId, $message)
     {
         try {
-            // echo "handlePipeMessage#$server->worker_id: $srcWorkerId >> $message\n";
             if (is_array($message)
                 && 2 === count($message)
                 && $message[0] instanceof TransferFrame
             ) {
+                $this->log("rpc pipe#{$server->worker_id}: {$srcWorkerId}");
                 /** @var $frame TransferFrame */
                 /** @var $uid int */
                 [$frame, $uid] = $message;
@@ -369,21 +368,22 @@ class RpcServer implements SwooleServerTcpInterface
             // 设置Rpc当前请求Fd
             RpcContext::setFd($fd);
             RpcContext::setUid($conn->uid);
-            // echo "receive#{$server->worker_id}: $fd >> " . bin2hex(substr($data, 0, 36)) . PHP_EOL;
+
             try {
                 $packet = TransferFrame::make($data, $fd);
             } catch (RpcFrameException $invalidFrame) {
-                echo "invalid frame discard #{$fd}, {$invalidFrame->getCode()}#{$invalidFrame->getMessage()}\n";
+                $message = "invalid frame discard #{$fd}, {$invalidFrame->getCode()}#{$invalidFrame->getMessage()}";
+                $this->logger->error('rpc server: ' . $message);
                 return;
             }
 
             if ($server->worker_id === $packet->getWorkerId()
                 || TransferFrame::WORKER_ID_NULL === $packet->getWorkerId()
             ) {
-                // echo "receive#$server->worker_id\n";
+                $this->log("receive#{$server->worker_id}");
                 $this->terminal->receive($packet);
             } else {
-                // echo "forward#$server->worker_id >> {$packet->getWorkerId()}\n";
+                $this->log("forward#{$server->worker_id} >> {$packet->getWorkerId()}");
                 $server->sendMessage([$packet, $conn->uid], $packet->getWorkerId());
             }
         } catch (Throwable $throwable) {
@@ -472,5 +472,20 @@ class RpcServer implements SwooleServerTcpInterface
     public function delConnection(int $fd): void
     {
         unset($this->fdConn[$fd]);
+    }
+
+    /**
+     * @param       $message
+     * @param array $context
+     */
+    public function log($message, array $context = []): void
+    {
+        if ($this->debug) {
+            if ($this->logger instanceof LoggerInterface) {
+                $this->logger->debug($message, $context);
+            } else {
+                echo $message . PHP_EOL;
+            }
+        }
     }
 }
