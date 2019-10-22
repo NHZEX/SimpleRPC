@@ -101,6 +101,19 @@ class RpcTerminal
     }
 
     /**
+     * @param Throwable $throwable
+     * @return bool
+     */
+    public function handleError(Throwable $throwable): bool
+    {
+        if (is_callable($this->errorHandle)) {
+            call_user_func($this->errorHandle, $throwable);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * 清理超时方法
      * @return int
      */
@@ -200,9 +213,7 @@ class RpcTerminal
                     break;
             }
         } catch (RpcException $exception) {
-            if (is_callable($this->errorHandle)) {
-                call_user_func($this->errorHandle, $exception);
-            } else {
+            if (!$this->handleError($exception)) {
                 throw $exception;
             }
             return false;
@@ -394,6 +405,7 @@ class RpcTerminal
             }
         } catch (Exception $exception) {
             // 记录错误信息
+            $this->handleError($exception);
             $this->respFailure($rid, $frame, $exception);
             return false;
         }
