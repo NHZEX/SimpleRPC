@@ -427,7 +427,7 @@ class RpcServer implements SwooleServerTcpInterface
                 $output .= "F: {$e->getCode()}:{$e->getLine()}\n";
                 $output .= "T: {$e->getTraceAsString()}\n";
             } while ($next = $next->getPrevious());
-            $output = "=============== End ===============\n";
+            $output .= "=============== End ===============\n";
             echo $output;
         }
     }
