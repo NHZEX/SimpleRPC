@@ -199,7 +199,8 @@ class RpcTerminal
             // 判断包类型
             switch ($frame->getOpcode()) {
                 case TransferFrame::OPCODE_PING:
-                    $this->tunnel->send(TransferFrame::pong($frame->getFd()));
+                    // 不需要对 PING 进行回应
+                    // $this->tunnel->send(TransferFrame::pong($frame->getFd()));
                     break;
                 case TransferFrame::OPCODE_EXECUTE:
                     $this->handleRequest($frame);

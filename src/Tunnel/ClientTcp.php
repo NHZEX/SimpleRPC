@@ -78,10 +78,11 @@ class ClientTcp implements TunnelInterface
         if (true === $this->handle->onSend($frame)) {
             return true;
         }
-        // 如果连接无效则中止发送
-        if (!$this->client->isConnected()) {
-            return false;
-        }
+        // 异步下检查连接状态是不靠谱的
+        // // 如果连接无效则中止发送
+        // if (!$this->client->isConnected()) {
+        //     return false;
+        // }
         // 打包数据
         $data = $frame->packet();
         // echo "clientTcpSend: $frame\n";
